@@ -7,7 +7,9 @@ import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.mapper.CategoryMapper;
 import com.pbl6.repositories.CategoryRepository;
 import com.pbl6.services.CategoryService;
+import com.pbl6.utils.EntityUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,22 +21,25 @@ public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final CategoryMapper cateMapper;
+    private final EntityUtil entityUtil;
+
+    @Value("${default_root_category}")
+    private  String defaultRootCategory;
+
 
     private Long getRootId() {
-        // Nếu bạn dùng "default-category" là root:
-        return categoryRepository.findBySlugAndParentId("default-category", null)
+        return categoryRepository.findBySlugAndParentId(defaultRootCategory, null)
                 .map(CategoryEntity::getId)
                 .orElseThrow(()-> new AppException(ErrorCode.DATA_NOT_FOUND));
     }
 
     public CategoryEntity resolveBySlugPath(String slugPath) {
         String[] parts = slugPath.split("/");
-        Long parentId = getRootId(); // id của root (default-category) hoặc null nếu root real = null
+        Long parentId = getRootId();
 
         CategoryEntity current = null;
         for (String slug : parts) {
-            current = categoryRepository.findBySlugAndParentId(slug, parentId)
-                    .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
+            current = entityUtil.ensureExists(categoryRepository.findBySlugAndParentId(slug, parentId));
             parentId = current.getId();
         }
         return current;
@@ -43,18 +48,15 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public CategoryDto getChildrenByType(String slugPath, String type , Boolean includeInactive) {
-        boolean includeAll = Boolean.TRUE.equals(includeInactive);
-        CategoryEntity node = resolveBySlugPath(slugPath);
 
-        if (!includeAll && !Boolean.TRUE.equals(node.getIsActive())) {
-            throw new AppException(ErrorCode.DATA_NOT_FOUND);
-        }
+        CategoryEntity node = resolveBySlugPath(slugPath);
+        entityUtil.ensureActive(node,includeInactive);
 
         List<CategoryEntity> children = (type == null || type.isBlank())
                 ? categoryRepository.findByParentId(node.getId())
                 : categoryRepository.findByParentIdAndCategoryType(node.getId(), type);
 
-        if (!includeAll) {
+        if (!includeInactive) {
             children = children.stream()
                     .filter(c -> Boolean.TRUE.equals(c.getIsActive()))
                     .toList();
@@ -68,7 +70,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public List<CategoryDto> getcategoryByRoot(Boolean includeInactive) {
         List<CategoryEntity> categoryEntities = categoryRepository.findByParentId(getRootId());
-        return (includeInactive == null || !includeInactive) ?
+        return (!includeInactive) ?
                 categoryEntities.stream()
                         .filter(CategoryEntity::getIsActive)
                         .map(cateMapper::toDto)

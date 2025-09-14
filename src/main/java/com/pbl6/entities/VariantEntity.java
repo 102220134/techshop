@@ -3,6 +3,7 @@ package com.pbl6.entities;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -27,12 +28,10 @@ public class VariantEntity {
     private String sku;
 
     @Column(nullable=false)
-    private Double price;
+    private BigDecimal price;
 
-    @Column(length=3)
-    private String currency = "VND";
 
-    private Boolean isPublish = false;
+    private Boolean isActive = false;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

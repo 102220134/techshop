@@ -12,7 +12,7 @@ import java.util.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class CategoryEntity {
+public class CategoryEntity implements Activatable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

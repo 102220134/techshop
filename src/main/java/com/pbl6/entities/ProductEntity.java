@@ -2,9 +2,10 @@ package com.pbl6.entities;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.pbl6.converters.JsonNodeConverter;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -15,7 +16,7 @@ import java.util.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProductEntity {
+public class ProductEntity implements Activatable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,8 +27,8 @@ public class ProductEntity {
     @Column(columnDefinition="TEXT")
     private String description;
 
-    @Column(columnDefinition="JSON")
-//    @Convert(converter = JsonNodeConverter.class)
+    @Column(columnDefinition = "json")
+    @JdbcTypeCode(SqlTypes.JSON)
     private ObjectNode detail;
 
     @Column(nullable=false, unique=true, length=120)
@@ -50,7 +51,7 @@ public class ProductEntity {
     private List<CategoryEntity> categories;
 
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY)
-    private List<MediaEntity> media;
+    private List<MediaEntity> medias;
 
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY)
     private List<ProductAttributeValueEntity> productAttributeValues;

@@ -1,0 +1,11 @@
+package com.pbl6.services;
+
+import com.pbl6.dtos.response.VariantDto;
+import com.pbl6.dtos.response.WarehouseResponse;
+
+import java.util.List;
+
+public interface WarehouseService {
+    List<WarehouseResponse> getAllWarehouses();
+    List<VariantDto.WarehouseStockDto> getWarehouseStockByVariantId(Long variantId);
+}

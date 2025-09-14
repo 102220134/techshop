@@ -21,10 +21,6 @@ public class MediaEntity {
     @JoinColumn(name="product_id", nullable=false)
     private ProductEntity product;
 
-    @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="variant_id")
-    private VariantEntity variant;
-
     private String mediaType;
     private String url;
     private String altText;

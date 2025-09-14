@@ -1,6 +1,6 @@
 package com.pbl6.mapper;
 
-import com.pbl6.dtos.request.RegisterRequest;
+import com.pbl6.dtos.request.auth.RegisterRequest;
 import com.pbl6.entities.UserEntity;
 import org.springframework.stereotype.Component;
 

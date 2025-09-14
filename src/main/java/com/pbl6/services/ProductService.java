@@ -1,12 +1,14 @@
 package com.pbl6.services;
 
-import com.pbl6.dtos.request.ProductRequest;
-import com.pbl6.dtos.response.ProductListItemDto;
+import com.pbl6.dtos.request.product.ProductFilterRequest;
+import com.pbl6.dtos.response.ProductDetailDto;
+import com.pbl6.dtos.response.ProductDto;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
 public interface ProductService {
-    Page<ProductListItemDto> getProductsByCategory(ProductRequest req, Pageable pageable);
+    List<ProductDto> getFeaturedProducts(String slug, int size);
+    Page<ProductDto> searchProduct(String slugPath, ProductFilterRequest req, boolean includeInactive);
+    ProductDetailDto getProductDetail(String slug,Long wareHouseId, boolean includeInactive);
 }

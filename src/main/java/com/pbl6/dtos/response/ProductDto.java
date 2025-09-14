@@ -1,22 +1,24 @@
 package com.pbl6.dtos.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.Builder;
 
 import java.math.BigDecimal;
-import java.util.List;
 @Builder
-public record ProductDetailDto(
-        long id,
+public record ProductDto(
+        Long id,
         String name,
         String description,
         String slug,
         String thumbnail,
-        ObjectNode detail,
-        boolean isAvailable,
-        List<VariantDto> variants,
-        List<MediaDto> medias,
+        BigDecimal price,
+        int stock,
+        int reservedStock,
+        int availableStock,
+        @JsonIgnore
+        int sold,
+        @JsonIgnore
+        double score,
         RatingSummary rating
 ) {
     public record RatingSummary(
@@ -24,4 +26,3 @@ public record ProductDetailDto(
             double average
     ) {}
 }
-

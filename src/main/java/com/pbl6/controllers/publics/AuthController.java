@@ -1,8 +1,8 @@
-package com.pbl6.controllers;
+package com.pbl6.controllers.publics;
 
-import com.pbl6.dtos.request.LoginRequest;
-import com.pbl6.dtos.request.RefreshTokenRequest;
-import com.pbl6.dtos.request.RegisterRequest;
+import com.pbl6.dtos.request.auth.LoginRequest;
+import com.pbl6.dtos.request.auth.RefreshTokenRequest;
+import com.pbl6.dtos.request.auth.RegisterRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.LoginDto;
 import com.pbl6.services.RefeshTokenService;
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("api/auth")
+@RequestMapping("api/public/auth")
 public class AuthController {
     private final UserService userService;
     private final RefeshTokenService refeshTokenService;

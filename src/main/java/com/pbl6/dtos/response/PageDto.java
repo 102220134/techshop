@@ -18,7 +18,7 @@ public class PageDto<T>{
 
     public PageDto(Page<T> page) {
         this.items = page.getContent();
-        this.page = page.getNumber();
+        this.page = page.getNumber()+1;
         this.size = page.getSize();
         this.totalElements = page.getTotalElements();
         this.totalPages = page.getTotalPages();

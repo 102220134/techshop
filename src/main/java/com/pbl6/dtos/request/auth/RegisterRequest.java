@@ -1,4 +1,4 @@
-package com.pbl6.dtos.request;
+package com.pbl6.dtos.request.auth;
 
 
 import jakarta.validation.constraints.*;

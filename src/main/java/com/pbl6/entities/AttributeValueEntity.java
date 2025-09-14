@@ -24,7 +24,7 @@ public class AttributeValueEntity {
     @Column(nullable=false, length=100)
     private String value;
 
-    private String colorHex;
+    private String label;
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy="attributeValue", fetch=FetchType.LAZY)
