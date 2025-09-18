@@ -30,8 +30,7 @@ public enum ErrorCode {
     DATA_NOT_FOUND(3006, "Data not found", HttpStatus.NOT_FOUND),
     DUPLICATE_DATA(3007, "Duplicate data", HttpStatus.CONFLICT),
     INVALID_STATUS(3008, "Invalid status value", HttpStatus.BAD_REQUEST),
-    INVALID_KEY(3009, "Invalid key", HttpStatus.BAD_REQUEST),
-    INVALID_PARAM(3010, "Invalid param", HttpStatus.BAD_REQUEST),
+    INVALID_PARAM(3009, "Invalid param", HttpStatus.BAD_REQUEST),
 
     // ===== Lỗi sản phẩm & kho (Product & Inventory) =====
     PRODUCT_NOT_FOUND(4001, "Product not found", HttpStatus.NOT_FOUND),

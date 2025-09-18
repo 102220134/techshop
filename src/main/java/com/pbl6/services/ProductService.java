@@ -10,5 +10,5 @@ import java.util.List;
 public interface ProductService {
     List<ProductDto> getFeaturedProducts(String slug, int size);
     Page<ProductDto> searchProduct(String slugPath, ProductFilterRequest req, boolean includeInactive);
-    ProductDetailDto getProductDetail(String slug,Long wareHouseId, boolean includeInactive);
+    ProductDetailDto getProductDetail(String slug, Long warehouseId, boolean includeInactive);
 }

@@ -10,8 +10,8 @@ import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.mapper.UserMapper;
 import com.pbl6.repositories.RoleRepository;
-import com.pbl6.repositories.UserRepositoty;
-import com.pbl6.services.RefeshTokenService;
+import com.pbl6.repositories.UserRepository;
+import com.pbl6.services.RefreshTokenService;
 import com.pbl6.services.UserService;
 import com.pbl6.utils.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -24,9 +24,9 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
-    private final UserRepositoty userRepository;
+    private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final RefeshTokenService refeshTokenService;
+    private final RefreshTokenService refreshTokenService;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final JwtUtil jwtUtil;
@@ -59,7 +59,7 @@ public class UserServiceImpl implements UserService {
         LoginDto loginResponse = new LoginDto();
 
         loginResponse.setAccessToken(jwtUtil.generateToken(userEntity.getPhone()));
-        String refreshToken =  refeshTokenService.addRefreshToken(userEntity);
+        String refreshToken =  refreshTokenService.addRefreshToken(userEntity);
         loginResponse.setRefreshToken(refreshToken);
         return loginResponse;
     }

@@ -5,7 +5,7 @@ import com.pbl6.dtos.request.auth.RefreshTokenRequest;
 import com.pbl6.dtos.request.auth.RegisterRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.LoginDto;
-import com.pbl6.services.RefeshTokenService;
+import com.pbl6.services.RefreshTokenService;
 import com.pbl6.services.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("api/public/auth")
 public class AuthController {
     private final UserService userService;
-    private final RefeshTokenService refeshTokenService;
+    private final RefreshTokenService refeshTokenService;
     @PostMapping("register")
     public ApiResponseDto<?> Register(@Valid @RequestBody RegisterRequest registerRequest) {
         userService.createUser(registerRequest);

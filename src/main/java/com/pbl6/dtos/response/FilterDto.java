@@ -1,13 +1,16 @@
 package com.pbl6.dtos.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Builder;
 
 import java.util.List;
-@Getter
-@AllArgsConstructor
-public class FilterDto {
-    private String code;
-    private String name;
-    private List<String> values;
+@Builder
+public record FilterDto(
+        String code,
+        String label,
+        List<ValueDto> values
+) {
+    public record ValueDto(
+            String value,
+            String label
+    ) {}
 }

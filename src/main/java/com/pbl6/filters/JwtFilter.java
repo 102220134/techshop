@@ -15,9 +15,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import org.springframework.util.PathMatcher;
 import java.util.List;
 
 @Component
@@ -29,10 +31,15 @@ public class JwtFilter extends OncePerRequestFilter {
     private final UserService userService;
     private final AuthenticationEntryPoint authenticationEntryPoint;
 
+    private final PathMatcher pathMatcher = new AntPathMatcher();
+
     private final List<String> bypassUrls = List.of(
-            "/api/auth/login",
-            "/api/auth/register",
-            "/api/auth/refresh_token"
+            "/api/public/**",
+            "/v3/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/swagger-resources/**",
+            "/webjars/**"
     );
 
     private boolean isByPass(HttpServletRequest req) {
@@ -42,7 +49,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
         return "OPTIONS".equalsIgnoreCase(req.getMethod())
                 || path.startsWith("/uploads/")
-                || bypassUrls.contains(path);
+                || bypassUrls.stream().anyMatch(p -> pathMatcher.match(p, path));
     }
 
 

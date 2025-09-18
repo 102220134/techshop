@@ -8,10 +8,10 @@ import java.util.List;
 @Builder
 public record VariantDto(
         long id,
-//        String name,
         String sku,
         String thumbnail,
         BigDecimal price,
+        BigDecimal special_price,
         List<AttributeDto> attributes,
         StockDto stock
 ) {
@@ -24,8 +24,6 @@ public record VariantDto(
     @Builder
     public record StockDto (
             Long warehouseId,
-//            int stock,
-//            int reservedStock,
             int availableStock,
             List<WarehouseStockDto> otherWarehouses
     ) { }
@@ -33,8 +31,6 @@ public record VariantDto(
     public record WarehouseStockDto(
              Long warehouseId,
              String name,
-//             int stock,
-//             int reservedStock,
              int availableStock
     ){}
 }

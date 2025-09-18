@@ -27,7 +27,7 @@ public class ProductFilterRequest {
 
         private BigDecimal price_from = BigDecimal.valueOf(0);
 
-        private BigDecimal price_to = BigDecimal.valueOf(50000000);
+        private BigDecimal price_to = BigDecimal.valueOf(1000000000);
 
         private Map<String, List<String>> filter = new HashMap<>();
 }

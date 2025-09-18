@@ -1,5 +1,7 @@
 package com.pbl6.utils;
 
+import com.pbl6.exceptions.AppException;
+import com.pbl6.exceptions.ErrorCode;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -15,10 +17,10 @@ import java.util.UUID;
 @Component
 public class JwtUtil {
 
-    @Value("${secret_key}")
+    @Value("${jwt.secret}")
     private String secretKey;
 
-    @Value("${expiration_access}")
+    @Value("${jwt.expiration.access}")
     private long expirationAccess;
 
     private SecretKey generateKey() {
@@ -34,23 +36,41 @@ public class JwtUtil {
     }
 
     public String generateRefreshTokenRaw() {
-        return UUID.randomUUID().toString() + "-" + System.nanoTime();
+        SecureRandom secureRandom = new SecureRandom();
+        byte[] randomBytes = new byte[32];
+        secureRandom.nextBytes(randomBytes);
+
+        return UUID.randomUUID().toString() + "-" +
+                java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
 
     public Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(generateKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        try {
+            return Jwts.parser()
+                    .verifyWith(generateKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.TOKEN_INVALID);
+        }
     }
+
     public String extractPhone(String token) {
-        return extractAllClaims(token).getSubject();
+        try {
+            return extractAllClaims(token).getSubject();
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.TOKEN_INVALID);
+        }
     }
 
     public boolean isTokenExpired(String token) {
-        return extractAllClaims(token).getExpiration().before(new Date());
+        try {
+            return extractAllClaims(token).getExpiration().before(new Date());
+        } catch (Exception e) {
+            return true;
+        }
     }
 
 }

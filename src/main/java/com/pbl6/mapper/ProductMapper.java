@@ -1,30 +1,50 @@
 package com.pbl6.mapper;
 
 import com.pbl6.dtos.projection.ProductProjection;
+import com.pbl6.dtos.response.ProductDetailDto;
 import com.pbl6.dtos.response.ProductDto;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ProductMapper {
-    public ProductDto toDto(ProductProjection p){
-        double score = (p.getSold() * 0.5) + (p.getTotal() * 0.2) + (p.getAverage() * 20 * 0.2);
+    public ProductDto toDto(ProductProjection projection) {
+        if (projection == null) {
+            return null;
+        }
         return ProductDto.builder()
-                .id(p.getId())
-                .name(p.getName())
-                .description(p.getDescription())
-                .slug(p.getSlug())
-                .thumbnail(p.getThumbnail())
-                .price(p.getPrice())
-                .stock(p.getStock())
-                .reservedStock(p.getReservedStock())
-                .availableStock(p.getStock()-p.getReservedStock())
-                .sold(p.getSold())
-                .score(score)
-                .rating(
-                        new ProductDto.RatingSummary(
-                                p.getTotal(),
-                                p.getAverage() == null ? 0 : p.getAverage()
-                        ))
+                .id(projection.getId())
+                .name(projection.getName())
+                .description(projection.getDescription())
+                .slug(projection.getSlug())
+                .thumbnail(projection.getThumbnail())
+                .price(projection.getPrice())
+                .stock(projection.getStock() != null ? projection.getStock() : 0)
+                .reserved_stock(projection.getReservedStock() != null ? projection.getReservedStock() : 0)
+                .available_stock(projection.getAvailableStock())
+                .sold(projection.getSold() != null ? projection.getSold() : 0)
+                .rating(new ProductDto.RatingSummary(
+                        projection.getTotal() != null ? projection.getTotal() : 0L,
+                        projection.getAverage() != null ? projection.getAverage() : 0.0
+                ))
+                .build();
+    }
+
+    public ProductDetailDto toDetailDto(ProductProjection projection) {
+        if (projection == null) {
+            return null;
+        }
+        return ProductDetailDto.builder()
+                .id(projection.getId())
+                .name(projection.getName())
+                .description(projection.getDescription())
+                .slug(projection.getSlug())
+                .thumbnail(projection.getThumbnail())
+                .detail(projection.getDetail())
+                .isAvailable(projection.getAvailableStock()>0)
+                .rating(new ProductDetailDto.RatingSummary(
+                        projection.getTotal() != null ? projection.getTotal() : 0L,
+                        projection.getAverage() != null ? projection.getAverage() : 0.0
+                ))
                 .build();
     }
 }

@@ -22,12 +22,14 @@ public class CategoryController {
     }
 
     @GetMapping("/{*slug}")
-    public CategoryDto getChildrenByType(
+    public ApiResponseDto<CategoryDto> getChildrenByType(
             @PathVariable("slug") String slug,
             @RequestParam(required = false) String type
     ) {
         String cleanSlug = slug.startsWith("/") ? slug.substring(1) : slug;
-        return categoryService.getChildrenByType(cleanSlug, type, Boolean.FALSE );
+        ApiResponseDto<CategoryDto> response = new ApiResponseDto<>();
+        response.setData(categoryService.getChildrenByType(cleanSlug, type, Boolean.FALSE));
+        return response;
     }
 
 }

@@ -14,39 +14,38 @@ import java.util.Optional;
 @Repository
 public interface ProductRepository extends JpaRepository<ProductEntity,Long> , JpaSpecificationExecutor<ProductEntity> {
 
+    Optional<ProductEntity> findBySlug(String slug);
+
     @Query(value = """
-    SELECT t.*
-    FROM (
-        SELECT 
-            p.id AS id,
-            p.name AS name,
-            p.description AS description,
-            p.slug AS slug,
-            p.thumbnail AS thumbnail,
-            MIN(CASE WHEN v.is_active = 1 THEN v.price END) AS price,
-            COALESCE(SUM(CASE WHEN v.is_active = 1 THEN inv.stock ELSE 0 END), 0) AS stock,
-            COALESCE(SUM(CASE WHEN v.is_active = 1 THEN inv.reserved_stock ELSE 0 END), 0) AS reservedStock,
-            COALESCE(SUM(oi.quantity), 0) AS sold,
-            COUNT(r.id) AS total,
-            COALESCE(AVG(r.rating), 0) AS average
+        SELECT
+            p.id,
+            p.name,
+            p.description,
+            p.slug,
+            p.thumbnail,
+            p.detail,
+            p.created_at AS createdAt,
+            p.updated_at AS updatedAt,
+            (SELECT MIN(v.price) FROM variants v WHERE v.product_id = p.id AND v.is_active = 1) AS price,
+            (SELECT COALESCE(SUM(i.stock), 0) FROM variants v
+             LEFT JOIN inventories i ON i.variant_id = v.id
+             WHERE v.product_id = p.id AND v.is_active = 1) AS stock,
+            (SELECT COALESCE(SUM(i.reserved_stock), 0) FROM variants v
+             LEFT JOIN inventories i ON i.variant_id = v.id
+             WHERE v.product_id = p.id AND v.is_active = 1) AS reservedStock,
+            (SELECT COALESCE(SUM(oi.quantity), 0) FROM variants v
+             LEFT JOIN order_items oi ON oi.variant_id = v.id
+             WHERE v.product_id = p.id AND v.is_active = 1) AS sold,
+            (SELECT COUNT(*) FROM reviews r WHERE r.product_id = p.id) AS total,
+            (SELECT COALESCE(AVG(r.rating), 0) FROM reviews r WHERE r.product_id = p.id) AS average
         FROM products p
-        LEFT JOIN variants v ON v.product_id = p.id
-        LEFT JOIN inventories inv ON inv.variant_id = v.id
-        LEFT JOIN order_items oi ON oi.variant_id = v.id
-        LEFT JOIN reviews r ON r.product_id = p.id
-        JOIN category_products cp ON cp.product_id = p.id
-        JOIN categories c ON c.id = cp.category_id
-        WHERE c.id = :cateId
+        INNER JOIN category_products cp ON cp.product_id = p.id
+        WHERE cp.category_id = :cateId
           AND (:includeInactive = true OR p.is_active = true)
-        GROUP BY p.id
-    ) t
-    """,
-            nativeQuery = true)
+    """, nativeQuery = true)
     List<ProductProjection> findAllByCategoryId(
             @Param("cateId") Long cateId,
             @Param("includeInactive") boolean includeInactive
     );
-
-    Optional<ProductEntity> findBySlug(String slug);
 
 }

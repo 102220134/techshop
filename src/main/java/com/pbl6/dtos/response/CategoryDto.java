@@ -17,9 +17,7 @@ public class CategoryDto {
     private String categoryType;
     private String logo;
 
+    @Setter
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private List<CategoryDto> children;
-    public void setChildren(List<CategoryDto> children) {
-        this.children = children;
-    }
 }

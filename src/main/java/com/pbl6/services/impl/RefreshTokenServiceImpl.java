@@ -6,8 +6,8 @@ import com.pbl6.entities.UserEntity;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.repositories.RefreshTokenRepository;
-import com.pbl6.repositories.UserRepositoty;
-import com.pbl6.services.RefeshTokenService;
+import com.pbl6.repositories.UserRepository;
+import com.pbl6.services.RefreshTokenService;
 import com.pbl6.utils.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,12 +20,12 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 @Service
-public class RefreshTokenServiceImpl implements RefeshTokenService {
+public class RefreshTokenServiceImpl implements RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
-    private final UserRepositoty userRepository;
+    private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
 
-    @Value("${expiration_refresh}")
+    @Value("${jwt.expiration.refresh}")
     private long expirationRefresh;
 
     @Override

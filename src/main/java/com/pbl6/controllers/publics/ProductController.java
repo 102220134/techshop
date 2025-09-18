@@ -1,21 +1,18 @@
 package com.pbl6.controllers.publics;
 
-import com.pbl6.dtos.request.FileRequest;
 import com.pbl6.dtos.request.product.ProductFilterRequest;
-import com.pbl6.dtos.response.*;
+import com.pbl6.dtos.response.ApiResponseDto;
+import com.pbl6.dtos.response.PageDto;
+import com.pbl6.dtos.response.ProductDetailDto;
+import com.pbl6.dtos.response.ProductDto;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.services.ProductService;
-import com.pbl6.utils.FileStorageUtil;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 
@@ -80,7 +77,7 @@ public class ProductController {
                     """) MultiValueMap<String, String> params
     ) {
 
-        Set<String> PARAM_KEYS = Set.of("order", "dir", "page", "size", "price_from", "price_to");
+        final Set<String> PARAM_KEYS = Set.of("order", "dir", "page", "size", "price_from", "price_to");
         Map<String, List<String>> filters = new HashMap<>();
         for (Map.Entry<String, List<String>> entry : params.entrySet()) {
             String key = entry.getKey();
@@ -105,13 +102,13 @@ public class ProductController {
         return response;
     }
 
-    @GetMapping("/detail/{*slug}")
+    @GetMapping("/{slug}/detail")
     public ApiResponseDto<ProductDetailDto> getProductDetail(
             @PathVariable String slug,
             @RequestParam Long warehouse_id
     ) {
         slug = slug.startsWith("/") ? slug.substring(1) : slug;
-        ProductDetailDto product = productService.getProductDetail(slug,warehouse_id ,false);
+        ProductDetailDto product = productService.getProductDetail(slug, warehouse_id, false);
         ApiResponseDto<ProductDetailDto> response = new ApiResponseDto<>();
         response.setData(product);
 

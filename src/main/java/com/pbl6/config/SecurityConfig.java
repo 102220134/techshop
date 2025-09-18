@@ -35,12 +35,18 @@ public class SecurityConfig {
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint) // 401
                         .accessDeniedHandler(customAccessDeniedHandler) // 403
                 )
-                .addFilterBefore(jwtFilter , UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET,"/uploads/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.GET ,"/test").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
-                        .requestMatchers(HttpMethod.POST ,"/test1").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
+                        .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/swagger-resources/**",
+                                "/webjars/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/cart/add").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
+                        .requestMatchers(HttpMethod.POST, "/test1").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
                         .anyRequest().authenticated()
                 );
         return http.build();
