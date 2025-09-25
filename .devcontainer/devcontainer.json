@@ -3,19 +3,16 @@
   "image": "mcr.microsoft.com/devcontainers/java:17",
 
   "features": {
-    "ghcr.io/devcontainers/features/maven:1": {},
-    "ghcr.io/devcontainers/features/gradle:1": {}
+    "ghcr.io/devcontainers/features/maven:1": {}
   },
 
-  "postCreateCommand": "mvn clean install -DskipTests",
+  "postCreateCommand": "java -version && mvn -v",
 
   "customizations": {
     "vscode": {
       "extensions": [
         "vscjava.vscode-java-pack",
-        "vscjava.vscode-maven",
-        "vscjava.vscode-gradle",
-        "redhat.vscode-xml"
+        "vscjava.vscode-maven"
       ]
     }
   },
