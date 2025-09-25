@@ -1,12 +1,8 @@
 {
   "name": "Java 17 Dev",
-  "image": "mcr.microsoft.com/devcontainers/java:17",
+  "image": "mcr.microsoft.com/devcontainers/java:17-bullseye",
 
-  "features": {
-    "ghcr.io/devcontainers/features/maven:1": {}
-  },
-
-  "postCreateCommand": "java -version && mvn -v",
+  "forwardPorts": [8080],
 
   "customizations": {
     "vscode": {
@@ -15,8 +11,5 @@
         "vscjava.vscode-maven"
       ]
     }
-  },
-
-  "forwardPorts": [8080],
-  "remoteUser": "vscode"
+  }
 }
