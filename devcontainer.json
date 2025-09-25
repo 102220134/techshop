@@ -1,0 +1,25 @@
+{
+  "name": "Java 17 Dev",
+  "image": "mcr.microsoft.com/devcontainers/java:17",
+
+  "features": {
+    "ghcr.io/devcontainers/features/maven:1": {},
+    "ghcr.io/devcontainers/features/gradle:1": {}
+  },
+
+  "postCreateCommand": "mvn clean install -DskipTests",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-maven",
+        "vscjava.vscode-gradle",
+        "redhat.vscode-xml"
+      ]
+    }
+  },
+
+  "forwardPorts": [8080],
+  "remoteUser": "vscode"
+}
