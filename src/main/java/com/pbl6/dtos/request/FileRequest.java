@@ -4,6 +4,6 @@ import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 @Data
 public class  FileRequest {
-    private String sku;
+    private Long categoryId;
     private MultipartFile file;
 }

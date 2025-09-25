@@ -1,18 +1,26 @@
 package com.pbl6.controllers.publics;
 
+import com.pbl6.dtos.request.FileRequest;
 import com.pbl6.dtos.request.product.ProductFilterRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.ProductDetailDto;
 import com.pbl6.dtos.response.ProductDto;
+import com.pbl6.entities.CategoryEntity;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
+import com.pbl6.repositories.CategoryRepository;
+import com.pbl6.repositories.ProductRepository;
 import com.pbl6.services.ProductService;
+import com.pbl6.utils.CloudinaryUtil;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 
@@ -21,29 +29,10 @@ import java.util.*;
 @RequestMapping("/api/public/product")
 public class ProductController {
 
-//    @Value("${app.upload-dir}")
-//    private String uploadDir;
-//    private final FileStorageUtil fileStorageUtil;
-
-
     private final ProductService productService;
-
-//    @GetMapping("/{*slug}")
-//    public ApiResponseDto<PageDto<ProductDto>> getProducts(
-//            @PathVariable String slug,
-//            @ParameterObject ProductParamRequest req
-//    ) {
-//
-//        Pageable pageable = PageRequest.of(req.getPage(), req.getSize(), resolveSort(req.getOrderBy(),req.getDir()));
-//
-//        ApiResponseDto<PageDto<ProductDto>> response = new ApiResponseDto<>();
-//        response.setData(new PageDto<>(productService.getProductsByCategory(
-//                slug.startsWith("/") ? slug.substring(1) : slug,
-//                req,
-//                pageable
-//        )));
-//        return response;
-//    }
+    private final CategoryRepository categoryRepository;
+    private final CloudinaryUtil cloudinaryUtil;
+    private final ProductRepository productRepository;
 
     @GetMapping("/featured/{*slug}")
     public ApiResponseDto<List<ProductDto>> getFeaturedProducts(
@@ -59,12 +48,6 @@ public class ProductController {
         response.setData(productService.getFeaturedProducts(slug, size));
         return response;
     }
-
-//    private JpaSort resolveSort(String orderBy,String dir) {
-//        if("desc".equals(dir))
-//            return JpaSort.unsafe(Sort.Direction.DESC, orderBy);
-//        return JpaSort.unsafe(Sort.Direction.ASC, orderBy);
-//    }
 
     @GetMapping("/search/{*slugPath}")
     public ApiResponseDto<PageDto<ProductDto>> searchProducts(
@@ -115,73 +98,22 @@ public class ProductController {
         return response;
     }
 
-
-//    @GetMapping("/{slug}")
-//    public ApiResponseDto<?> test(
-//            @Valid
-//            @NotBlank(message = "REQUIRED_FIELD_MISSING")
-//            @NotNull(message = "REQUIRED_FIELD_MISSING")
-//            @PathVariable String slug) {
-//        ApiResponseDto<ProductDetailDto> response = new ApiResponseDto<>();
-//        response.setData(productService.getProductDetail(slug));
-//        return  response;
-//    }
-
-//    @PostMapping("/searchAdvanced")
-//    @Operation(summary = "List products (paging, sorting, filtering)")
-//    public ApiResponseDto<PageDto<ProductListItemDto>> search(@Valid @RequestBody ProductSearchRequest req) {
-//        int page = req.page() == null ? 0 : Math.max(0, req.page());
-//        int size = req.size() == null ? 20 : Math.max(1, Math.min(200, req.size()));
-//
-//        Sort sort = Sort.by("createdAt").descending();
-//        if (req.sort() != null && !req.sort().isEmpty()) {
-//            List<Sort.Order> orders = new ArrayList<>();
-//            for (String s : req.sort()) {
-//                if (s == null || s.isBlank()) continue;
-//                String[] parts = s.split(",", 2);
-//                String prop = parts[0].trim();
-//                Sort.Direction dir = (parts.length > 1 && "asc".equalsIgnoreCase(parts[1].trim()))
-//                        ? Sort.Direction.ASC : Sort.Direction.DESC;
-//                // whitelist cột cho an toàn:
-//                if (prop.matches("(?i)name|price|createdAt|updatedAt|sku")) {
-//                    orders.add(new Sort.Order(dir, prop));
-//                }
-//            }
-//            if (!orders.isEmpty()) sort = Sort.by(orders);
-//        }
-//
-//        Pageable pageable = PageRequest.of(page, size, sort);
-//
-//        ApiResponseDto<PageDto<ProductListItemDto>> response = new ApiResponseDto<>();
-//        response.setData(new PageDto<>(productService.searchAdvanced(
-//                req,
-//                pageable
-//        )));
-//        return response;
-//    }
-
 //    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 //    public ResponseEntity<?> upload(@ModelAttribute FileRequest request) throws Exception {
-//        // Lấy sku và file từ DTO
-//        String sku = request.getSku();
+//        Long id = request.getCategoryId();
 //        MultipartFile file = request.getFile();
-//        var stored = fileStorageUtil.storeImage(sku, file);
-//        StringBuilder urlPath = new StringBuilder();
-//        urlPath.append('/').append(uploadDir).append('/').append(stored.path());
 //
-//        return ResponseEntity.ok(Map.of(
-//                "sku", sku,
-//                "url", urlPath
-//        ));
+//        var entity = productRepository.findById(id)
+//                .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
+//
+//        // Upload Cloudinary thay vì local
+//        String uploadedUrl = cloudinaryUtil.uploadImage(file, entity.getSlug());
+//
+//        // Lưu URL vào DB
+//        entity.setThumbnail(uploadedUrl);
+//        productRepository.save(entity);
+//
+//        return ResponseEntity.ok(Map.of("url", uploadedUrl));
 //    }
-
-//    @GetMapping(value = "/filters")
-//    public ApiResponseDto<?> getFiltersByCategories( @RequestParam(required = false) List<String> categories) throws Exception {
-//     List<FilterDto> filterDtos = productService.getFiltersByCategories(categories);
-//     ApiResponseDto<List<FilterDto>> response = new ApiResponseDto<>();
-//     response.setData(filterDtos);
-//     return response;
-//    }
-
 
 }
