@@ -2,6 +2,8 @@
   "name": "Java 17 Dev",
   "image": "mcr.microsoft.com/devcontainers/java:17-bullseye",
 
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y maven",
+
   "forwardPorts": [8080],
 
   "customizations": {
