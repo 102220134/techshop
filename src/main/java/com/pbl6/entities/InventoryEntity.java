@@ -14,6 +14,7 @@ import java.util.Date;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class InventoryEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,10 +25,18 @@ public class InventoryEntity {
     private VariantEntity variant;
 
     @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="warehouse_id", nullable=false)
-    private WarehouseEntity warehouse;
+    @JoinColumn(name="location_id", nullable=false)
+    private InventoryLocationEntity inventoryLocation;
 
     private Integer stock = 0;
     private Integer reservedStock = 0;
     private LocalDateTime updatedAt;
+
+    public void addReservedStock(int quantity){
+        this.reservedStock = reservedStock + quantity;
+    }
+
+    public Integer getAvailableStock(){
+        return stock-reservedStock;
+    }
 }

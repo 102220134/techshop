@@ -11,6 +11,7 @@ import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.repositories.CategoryRepository;
 import com.pbl6.repositories.ProductRepository;
+import com.pbl6.repositories.VariantRepository;
 import com.pbl6.services.ProductService;
 import com.pbl6.utils.CloudinaryUtil;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,6 +34,7 @@ public class ProductController {
     private final CategoryRepository categoryRepository;
     private final CloudinaryUtil cloudinaryUtil;
     private final ProductRepository productRepository;
+    private final VariantRepository variantRepository;
 
     @GetMapping("/featured/{*slug}")
     public ApiResponseDto<List<ProductDto>> getFeaturedProducts(
@@ -46,6 +48,21 @@ public class ProductController {
 
         ApiResponseDto<List<ProductDto>> response = new ApiResponseDto<>();
         response.setData(productService.getFeaturedProducts(slug, size));
+        return response;
+    }
+
+    @GetMapping("/best_seller/{*slug}")
+    public ApiResponseDto<List<ProductDto>> getBestSellerProducts(
+            @PathVariable String slug,
+            @RequestParam(required = false, defaultValue = "20") int size
+    ) {
+
+        if (size < 1) throw new AppException(ErrorCode.VALIDATION_ERROR);
+
+        slug = slug.startsWith("/") ? slug.substring(1) : slug;
+
+        ApiResponseDto<List<ProductDto>> response = new ApiResponseDto<>();
+        response.setData(productService.getBestSellerProducts(slug, size));
         return response;
     }
 
@@ -87,11 +104,10 @@ public class ProductController {
 
     @GetMapping("/{slug}/detail")
     public ApiResponseDto<ProductDetailDto> getProductDetail(
-            @PathVariable String slug,
-            @RequestParam Long warehouse_id
+            @PathVariable String slug
     ) {
         slug = slug.startsWith("/") ? slug.substring(1) : slug;
-        ProductDetailDto product = productService.getProductDetail(slug, warehouse_id, false);
+        ProductDetailDto product = productService.getProductDetail(slug, false);
         ApiResponseDto<ProductDetailDto> response = new ApiResponseDto<>();
         response.setData(product);
 
@@ -103,15 +119,15 @@ public class ProductController {
 //        Long id = request.getCategoryId();
 //        MultipartFile file = request.getFile();
 //
-//        var entity = productRepository.findById(id)
+//        var entity = variantRepository.findById(id)
 //                .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
 //
 //        // Upload Cloudinary thay vì local
-//        String uploadedUrl = cloudinaryUtil.uploadImage(file, entity.getSlug());
+//        String uploadedUrl = cloudinaryUtil.uploadImage(file, entity.getSku());
 //
 //        // Lưu URL vào DB
 //        entity.setThumbnail(uploadedUrl);
-//        productRepository.save(entity);
+//        variantRepository.save(entity);
 //
 //        return ResponseEntity.ok(Map.of("url", uploadedUrl));
 //    }

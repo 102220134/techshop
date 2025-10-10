@@ -1,10 +1,12 @@
 package com.pbl6.entities;
 
+import com.pbl6.enums.ProductSerialStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.List;
 
 @Entity
 @Table(name = "product_serials")
@@ -25,15 +27,19 @@ public class ProductSerialEntity {
     private VariantEntity variant;
 
     @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="warehouse_id")
-    private WarehouseEntity warehouse;
+    @JoinColumn(name="location_id")
+    private InventoryLocationEntity inventoryLocation;
 
-    @Column(nullable=false, length=40)
-    private String status = "in_stock"; // 'in_stock','sold','returned','defective'
+    @Enumerated(EnumType.STRING)
+    private ProductSerialStatus status ; // 'in_stock','sold','returned','defective'
 
     @ManyToOne(fetch=FetchType.LAZY)
     @JoinColumn(name="order_item_id")
     private OrderItemEntity orderItem;
+
+    @ManyToMany(mappedBy = "productSerials", fetch = FetchType.LAZY)
+    private List<InventoryTransferItemEntity> transferItems;
+
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

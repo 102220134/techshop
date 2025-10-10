@@ -9,4 +9,5 @@ public interface UserService {
     void createUser(RegisterRequest registerRequest);
     LoginDto login(LoginRequest loginRequest);
     UserEntity loadUserByPhone(String phone);
+    UserEntity createOrGetGuest(String email, String phone, String name);
 }

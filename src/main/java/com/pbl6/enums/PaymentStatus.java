@@ -6,8 +6,10 @@ import lombok.Getter;
 public enum PaymentStatus {
 
     PENDING("pending", "Chờ"),
-    COMPLETED("completed", "Thành công"),
+    PROCESSING("processing","Đang tiến hành"),
+    PAID("paid", "đã thanh toán"),
     FAILED("failed", "Thất bại"),
+    CANCELED("cancel","Huỷ"),
     REFUNDED("refunded", "Hoàn tiền");
 
     private final String code;

@@ -1,0 +1,29 @@
+package com.pbl6.dtos.response;
+
+import com.pbl6.dtos.response.payment.PaymentInfo;
+import com.pbl6.dtos.response.payment.PaymentInitResponse;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+/**
+ * Thông tin chi tiết nếu phương thức thanh toán là chuyển khoản ngân hàng.
+ */
+@Getter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class BankTransferInfo extends PaymentInfo {
+    private String type;
+    private String label;
+    private String bankAccountNumber;
+    private String bankAccountName;
+    private String bankName;
+    private String transferContent;
+    private String qrCodeUrl;
+    private LocalDateTime expireAt;
+}

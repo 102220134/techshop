@@ -15,6 +15,7 @@ import java.util.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class UserEntity implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,6 +39,7 @@ public class UserEntity implements UserDetails {
 
     private String avatar;
     private Boolean isActive = true;
+    private Boolean isGuest = false;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

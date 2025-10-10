@@ -26,31 +26,4 @@ public class WarehouseServiceImpl implements WarehouseService {
                 wh-> new WarehouseResponse(wh.getId(),wh.getName())
         ).toList();
     }
-
-    @Override
-    public List<VariantDto.WarehouseStockDto> getWarehouseStockByVariantId(Long variantId) {
-        // lấy tất cả warehouse
-        List<WarehouseEntity> allWarehouses = warehouseRepository.findAll();
-
-        // lấy inventories của variant
-        List<InventoryEntity> inventories = inventoryRepository.findByVariantId(variantId);
-
-        // map warehouseId -> inventory
-        Map<Long, InventoryEntity> invMap = inventories.stream()
-                .collect(Collectors.toMap(i -> i.getWarehouse().getId(), i -> i));
-
-        // merge tất cả warehouse với stock
-        return allWarehouses.stream()
-                .map(w -> {
-                    InventoryEntity inv = invMap.get(w.getId());
-                    int stock = inv != null ? inv.getStock() : 0;
-                    int reserved = inv != null ? inv.getReservedStock() : 0;
-                    return VariantDto.WarehouseStockDto.builder()
-                            .warehouseId(w.getId())
-                            .name(w.getName())
-                            .availableStock(stock - reserved)
-                            .build();
-                })
-                .toList();
-    }
 }

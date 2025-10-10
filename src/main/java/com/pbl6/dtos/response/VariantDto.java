@@ -11,9 +11,9 @@ public record VariantDto(
         String sku,
         String thumbnail,
         BigDecimal price,
-        BigDecimal special_price,
+        BigDecimal specialPrice,
         List<AttributeDto> attributes,
-        StockDto stock
+        int availableStock
 ) {
     @Builder
     public record AttributeDto(
@@ -21,16 +21,4 @@ public record VariantDto(
             String label,
             String value
     ) { }
-    @Builder
-    public record StockDto (
-            Long warehouseId,
-            int availableStock,
-            List<WarehouseStockDto> otherWarehouses
-    ) { }
-    @Builder
-    public record WarehouseStockDto(
-             Long warehouseId,
-             String name,
-             int availableStock
-    ){}
 }

@@ -1,5 +1,8 @@
 package com.pbl6.entities;
 
+import com.pbl6.enums.OrderStatus;
+import com.pbl6.enums.PaymentMethod;
+import com.pbl6.enums.ReceiveMethod;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -12,6 +15,7 @@ import java.util.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class OrderEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,8 +33,8 @@ public class OrderEntity {
             foreignKey = @ForeignKey(name = "fk_orders_sale"))
     private UserEntity sale;
 
-    @Column(nullable=false, length=40)
-    private String status = "pending"; // pending, confirmed, ...
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status; // pending, confirmed, ...
 
     @Column(nullable=false, precision=15, scale=2)
     private BigDecimal totalAmount;
@@ -38,19 +42,11 @@ public class OrderEntity {
     @Column(nullable=false, precision=15, scale=2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
-    @Column(nullable=false, precision=15, scale=2)
-    private BigDecimal taxAmount = BigDecimal.ZERO;
+    @Enumerated(EnumType.STRING)
+    private PaymentMethod paymentMethod;
 
-    @Column(nullable=false, precision=15, scale=2)
-    private BigDecimal shippingFee = BigDecimal.ZERO;
-
-    @Column(length=3)
-    private String currency = "VND";
-
-    @Column(precision=18, scale=6)
-    private BigDecimal exchangeRate = BigDecimal.ONE;
-
-    private String shippingMethod;
+    @Enumerated(EnumType.STRING)
+    private ReceiveMethod receiveMethod;
     private String note;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -58,30 +54,31 @@ public class OrderEntity {
             foreignKey = @ForeignKey(name = "fk_orders_voucher"))
     private VoucherEntity voucher;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "store_id")
+    private StoreEntity store;
+
     // shipping address snapshot
     @Column(nullable=false, length=120)
-    private String shipFullName;
+    private String snapshotName;
 
     @Column(nullable=false, length=20)
-    private String shipPhone;
+    private String snapshotPhone;
 
     @Column(nullable=false, length=200)
-    private String shipLine1;
-
-    private String shipLine2;
+    private String snapshotLine;
 
     @Column(nullable=false, length=100)
-    private String shipWard;
+    private String snapshotWard;
 
     @Column(nullable=false, length=100)
-    private String shipDistrict;
+    private String snapshotDistrict;
 
     @Column(nullable=false, length=100)
-    private String shipProvince;
+    private String snapshotProvince;
 
-    private String shipCountry = "VN";
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
@@ -95,4 +92,28 @@ public class OrderEntity {
 
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
     private List<VoucherUsageEntity> voucherUsages;
+
+    @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
+    private List<OrderItemEntity> orderItems;
+
+    @PrePersist
+    public void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public String getDeliveryAddress(){
+        return java.util.stream.Stream.of(snapshotLine, snapshotWard, snapshotDistrict, snapshotProvince)
+                .filter(s -> s != null && !s.isBlank())
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
 }

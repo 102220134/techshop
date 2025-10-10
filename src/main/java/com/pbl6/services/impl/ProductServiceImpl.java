@@ -91,6 +91,51 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public List<ProductDto> getBestSellerProducts(String slug, int size) {
+        CategoryEntity category = categoryService.resolveBySlugPath(slug);
+        entityUtil.ensureActive(category, false);
+
+        // B1: Lấy tất cả sản phẩm trong category
+        List<ProductProjection> products = productRepositoryCustom.findAllByCategoryId(category.getId(), false, true);
+
+        // B2: Lọc còn hàng + tính score cơ bản (chưa có promotion)
+        List<ProductProjection> topProducts = products.stream()
+                .filter(p -> p.getAvailableStock() > 0)
+                .sorted(Comparator.comparingInt(ProductProjection::getSold).reversed())
+                .limit(size)
+                .toList();
+
+        return topProducts.stream()
+                .map(projection -> {
+                    PromotionDto promotion = promotionService.findBestPromotion(projection.getId(), projection.getPrice());
+
+                    BigDecimal specialPrice = promotion != null
+                            ? promotion.getSpecialPrice()
+                            : projection.getPrice();
+
+                    return ProductDto.builder()
+                            .id(projection.getId())
+                            .name(projection.getName())
+                            .description(projection.getDescription())
+                            .slug(projection.getSlug())
+                            .thumbnail(projection.getThumbnail())
+                            .price(projection.getPrice())
+                            .special_price(specialPrice)
+                            .promotion(promotion)
+                            .stock(projection.getStock() != null ? projection.getStock() : 0)
+                            .reserved_stock(projection.getReservedStock() != null ? projection.getReservedStock() : 0)
+                            .available_stock(projection.getAvailableStock())
+                            .sold(projection.getSold() != null ? projection.getSold() : 0)
+                            .rating(new ProductDto.RatingSummary(
+                                    projection.getTotal() != null ? projection.getTotal() : 0L,
+                                    projection.getAverage() != null ? projection.getAverage() : 0.0
+                            ))
+                            .build();
+                })
+                .toList();
+    }
+
+    @Override
     public Page<ProductDto> searchProduct(String slugPath, ProductFilterRequest req, boolean includeInactive) {
         CategoryEntity categoryEntity = categoryService.resolveBySlugPath(slugPath);
         entityUtil.ensureActive(categoryEntity, false);
@@ -122,16 +167,14 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductDetailDto getProductDetail(String slug, Long warehouseId, boolean includeInactive) {
-
-        entityUtil.ensureExists(wareHouseRepository.findById(warehouseId));
+    public ProductDetailDto getProductDetail(String slug,boolean includeInactive) {
 
         ProductProjection projection = productRepositoryCustom.findBySlug(slug, includeInactive)
                 .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
 
         PromotionDto promotion = promotionService.findBestPromotion(projection.getId(), projection.getPrice());
 
-        List<VariantDto> variants = variantService.getVariantsByProduct(projection.getId(), warehouseId)
+        List<VariantDto> variants = variantService.getVariantsByProduct(projection.getId())
                 .stream()
                 .map(v -> {
                     BigDecimal basePrice = v.price();
@@ -156,9 +199,9 @@ public class ProductServiceImpl implements ProductService {
                             .sku(v.sku())
                             .thumbnail(v.thumbnail())
                             .price(basePrice)
-                            .special_price(specialPrice)
+                            .specialPrice(specialPrice)
                             .attributes(v.attributes())
-                            .stock(v.stock())
+                            .availableStock(v.availableStock())
                             .build();
                 })
                 .toList();

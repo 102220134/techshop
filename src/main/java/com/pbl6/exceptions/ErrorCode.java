@@ -27,10 +27,12 @@ public enum ErrorCode {
     INVALID_PHONE_FORMAT(3003, "Invalid phone number format", HttpStatus.BAD_REQUEST),
     REQUIRED_FIELD_MISSING(3004, "Required field is missing", HttpStatus.BAD_REQUEST),
     INVALID_PASSWORD_FORMAT(3005, "Invalid password format", HttpStatus.BAD_REQUEST),
-    DATA_NOT_FOUND(3006, "Data not found", HttpStatus.NOT_FOUND),
-    DUPLICATE_DATA(3007, "Duplicate data", HttpStatus.CONFLICT),
-    INVALID_STATUS(3008, "Invalid status value", HttpStatus.BAD_REQUEST),
-    INVALID_PARAM(3009, "Invalid param", HttpStatus.BAD_REQUEST),
+    INVALID_FIELD_FORMAT(3006, "Invalid field format", HttpStatus.BAD_REQUEST),
+    DATA_NOT_FOUND(3007, "Data not found", HttpStatus.NOT_FOUND),
+    DUPLICATE_DATA(3008, "Duplicate data", HttpStatus.CONFLICT),
+    INVALID_STATUS(3009, "Invalid status value", HttpStatus.BAD_REQUEST),
+    INVALID_PARAM(3010, "Invalid param", HttpStatus.BAD_REQUEST),
+    INVALID_QUANTITY(3011,"Invalid quantity", HttpStatus.BAD_REQUEST),
 
     // ===== Lỗi sản phẩm & kho (Product & Inventory) =====
     PRODUCT_NOT_FOUND(4001, "Product not found", HttpStatus.NOT_FOUND),
@@ -38,6 +40,8 @@ public enum ErrorCode {
     INVALID_PRODUCT_ID(4003, "Invalid product ID", HttpStatus.BAD_REQUEST),
     INVENTORY_NOT_FOUND(4004, "Inventory not found", HttpStatus.NOT_FOUND),
     INSUFFICIENT_STOCK(4005, "Insufficient stock quantity", HttpStatus.BAD_REQUEST),
+    STOCK_NOT_AVAILABLE(4006, "Requested quantity exceeds available stock", HttpStatus.BAD_REQUEST),
+    OVERSELL_PRODUCT_SERIAL(4007, "Product serial oversell", HttpStatus.BAD_REQUEST),
 
     // ===== Lỗi đơn hàng (Order) =====
     ORDER_NOT_FOUND(5001, "Order not found", HttpStatus.NOT_FOUND),
@@ -49,6 +53,10 @@ public enum ErrorCode {
     FILE_EMPTY(6001, "File empty", HttpStatus.BAD_REQUEST),
     INVALID_TYPE_FILE(6002, "Invalid type file", HttpStatus.BAD_REQUEST),
     SECURITY_PATH_TRAVERSAL(6003, "Security path traversal", HttpStatus.BAD_REQUEST),
+
+    // ===== Lỗi Unknown =====
+    UNKNOWN_PAYMENT_METHOD(7001, "Unkown payment method", HttpStatus.BAD_REQUEST),
+    UNKNOWN_RECEIVE_METHOD(7002, "Unkown receive method", HttpStatus.BAD_REQUEST),
 
     // ===== Lỗi hệ thống (System) =====
     INTERNAL_SERVER_ERROR(9001, "Internal server error", HttpStatus.INTERNAL_SERVER_ERROR),

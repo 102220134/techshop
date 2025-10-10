@@ -11,6 +11,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class OrderItemEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,9 +32,9 @@ public class OrderItemEntity {
     @Column(nullable=false, length=200)
     private String productName;
 
-    // JSON attributes snapshot
-    @Column(columnDefinition = "JSON")
-    private String variantAttributes;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="promotion_id", nullable=false)
+    private PromotionEntity promotion;
 
     @Column(nullable=false, length=100)
     private String sku;
@@ -54,4 +55,13 @@ public class OrderItemEntity {
     // reviews unique by order_item_id (see ReviewEntity)
     @OneToMany(mappedBy = "orderItem", fetch = FetchType.LAZY)
     private List<ReviewEntity> reviews;
+
+    public BigDecimal getSpecialPrice(){
+        return price.subtract(discountAmount);
+    }
+
+    public BigDecimal getSubTotal(){
+        return getSpecialPrice().multiply(BigDecimal.valueOf(quantity));
+    }
+
 }

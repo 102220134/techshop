@@ -13,6 +13,7 @@ import java.util.Set;
 @AllArgsConstructor
 @Entity
 @Table(name = "promotions")
+@Builder
 public class PromotionEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

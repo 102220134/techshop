@@ -32,35 +32,52 @@ public class UserServiceImpl implements UserService {
     private final JwtUtil jwtUtil;
     @Override
     public void createUser(RegisterRequest registerRequest) {
-        Optional<UserEntity> user = userRepository.findByPhone(registerRequest.getPhone());
+        Optional<UserEntity> existingUserOpt = userRepository.findByPhone(registerRequest.getPhone());
 
-        if (user.isPresent()) {
+        if (existingUserOpt.isEmpty()) {
+            UserEntity newUser = userMapper.toUserEntity(registerRequest);
+            newUser.setPassword(passwordEncoder.encode(newUser.getPassword()));
+            RoleEntity roleEntity = roleRepository.findByName(RoleEnum.CUSTOMER.getRoleName())
+                    .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
+            newUser.setRole(roleEntity);
+            newUser.setIsGuest(false);
+            newUser.setIsActive(true);
+            userRepository.save(newUser);
+            return;
+        }
+
+        UserEntity existingUser = existingUserOpt.get();
+
+        if (!existingUser.getIsGuest()) {
             throw new AppException(ErrorCode.USER_EXISTED);
         }
 
-        UserEntity userEntity = userMapper.toUserEntity(registerRequest);
-
-        String encodedPassword = passwordEncoder.encode(userEntity.getPassword());
-        userEntity.setPassword(encodedPassword);
-
-        RoleEntity roleEntity = roleRepository.findByName(RoleEnum.CUSTOMER.getRoleName())
-                .orElseThrow(()-> new AppException(ErrorCode.DATA_NOT_FOUND));
-        userEntity.setRole(roleEntity);
-        userRepository.save(userEntity);
+        existingUser.setName(registerRequest.getName());
+        existingUser.setEmail(registerRequest.getEmail());
+        existingUser.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        existingUser.setIsGuest(false);
+        existingUser.setIsActive(true);
+        userRepository.save(existingUser);
     }
 
     @Override
     public LoginDto login(LoginRequest loginRequest) {
         UserEntity userEntity = userRepository.findByPhone(loginRequest.getPhone())
-                .orElseThrow(()-> new AppException(ErrorCode.USER_NOT_FOUND));
-        if(!passwordEncoder.matches(loginRequest.getPassword(), userEntity.getPassword())) {
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(userEntity.getIsGuest())) {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
-        LoginDto loginResponse = new LoginDto();
 
+        if (!passwordEncoder.matches(loginRequest.getPassword(), userEntity.getPassword())) {
+            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        LoginDto loginResponse = new LoginDto();
         loginResponse.setAccessToken(jwtUtil.generateToken(userEntity.getPhone()));
-        String refreshToken =  refreshTokenService.addRefreshToken(userEntity);
+        String refreshToken = refreshTokenService.addRefreshToken(userEntity);
         loginResponse.setRefreshToken(refreshToken);
+
         return loginResponse;
     }
 
@@ -68,6 +85,24 @@ public class UserServiceImpl implements UserService {
     public UserEntity loadUserByPhone(String phone) throws UsernameNotFoundException {
         return userRepository.findByPhone(phone).orElseThrow(() ->
                 new UsernameNotFoundException("User not found with phone: " + phone));
+    }
+
+    @Override
+    public UserEntity createOrGetGuest(String email, String phone, String name) {
+        return userRepository.findByPhone(phone)
+                .orElseGet(() -> {
+                    RoleEntity roleEntity = roleRepository.findByName(RoleEnum.CUSTOMER.getRoleName())
+                            .orElseThrow(()-> new AppException(ErrorCode.DATA_NOT_FOUND));
+                    UserEntity guest = UserEntity.builder()
+                            .name(name)
+                            .email(email)
+                            .phone(phone)
+                            .role(roleEntity)
+                            .isGuest(true)
+                            .isActive(false)
+                            .build();
+                    return userRepository.save(guest);
+                });
     }
 
 }

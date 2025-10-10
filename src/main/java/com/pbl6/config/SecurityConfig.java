@@ -52,7 +52,10 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST,"api/checkout/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/cart/add").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
+                        .requestMatchers(HttpMethod.GET, "/api/order").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
                         .requestMatchers(HttpMethod.POST, "/test1").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
                         .anyRequest().authenticated()
                 );

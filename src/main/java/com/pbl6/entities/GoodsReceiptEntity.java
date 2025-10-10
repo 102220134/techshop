@@ -22,8 +22,8 @@ public class GoodsReceiptEntity {
     private PurchaseOrderEntity purchaseOrder;
 
     @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="warehouse_id", nullable=false)
-    private WarehouseEntity warehouse;
+    @JoinColumn(name="location_id", nullable=false)
+    private InventoryLocationEntity inventoryLocation;
 
     @Column(nullable=false)
     private LocalDateTime receiptDate;

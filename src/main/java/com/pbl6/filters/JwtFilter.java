@@ -39,31 +39,54 @@ public class JwtFilter extends OncePerRequestFilter {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/swagger-resources/**",
-            "/webjars/**"
+            "/webjars/**",
+            "/ws/**"
     );
 
-    private boolean isByPass(HttpServletRequest req) {
-        String ctx = req.getContextPath();
-        String uri = req.getRequestURI();
-        String path = uri.substring(ctx.length());
+    //api có the khong can login van vao duoc
+    private final List<String> optionalSecurityUrls = List.of(
+            "/api/checkout/**"
+    );
 
-        return "OPTIONS".equalsIgnoreCase(req.getMethod())
-                || path.startsWith("/uploads/")
-                || bypassUrls.stream().anyMatch(p -> pathMatcher.match(p, path));
+//    private boolean isByPass(HttpServletRequest req) {
+//        String ctx = req.getContextPath();
+//        String uri = req.getRequestURI();
+//        String path = uri.substring(ctx.length());
+//
+//        return "OPTIONS".equalsIgnoreCase(req.getMethod())
+//                || path.startsWith("/uploads/")
+//                || bypassUrls.stream().anyMatch(p -> pathMatcher.match(p, path));
+//    }
+
+    private boolean matchAny(HttpServletRequest req, List<String> patterns) {
+        String path = req.getRequestURI().substring(req.getContextPath().length());
+        return patterns.stream().anyMatch(p -> pathMatcher.match(p, path));
     }
-
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,FilterChain filterChain) throws ServletException, IOException {
 
-        if (isByPass(request)) {
+//        if (isByPass(request)) {
+//            filterChain.doFilter(request, response);
+//            return;
+//        }
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod()) ||
+            matchAny(request, bypassUrls)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
+        boolean isOptional = matchAny(request, optionalSecurityUrls);
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            //Có thể guest-không cần jwt
+            if (isOptional) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             authenticationEntryPoint.commence(request, response,
                     new AuthenticationException("Missing or invalid Authorization header") {});
             return;

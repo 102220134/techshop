@@ -7,5 +7,4 @@ import java.util.List;
 
 public interface WarehouseService {
     List<WarehouseResponse> getAllWarehouses();
-    List<VariantDto.WarehouseStockDto> getWarehouseStockByVariantId(Long variantId);
 }

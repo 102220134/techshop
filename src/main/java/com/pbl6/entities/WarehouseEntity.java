@@ -11,10 +11,14 @@ import java.util.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class WarehouseEntity implements Activatable {
+public class WarehouseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="location_id", nullable=false)
+    private InventoryLocationEntity inventoryLocation;
 
     @Column(nullable=false, unique=true, length=50)
     private String code;
@@ -22,23 +26,7 @@ public class WarehouseEntity implements Activatable {
     @Column(nullable=false, length=100)
     private String name;
 
-    private String address;
-    private Boolean isActive = true;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "warehouse", fetch = FetchType.LAZY)
-    private List<InventoryEntity> inventories;
-
-    @OneToMany(mappedBy = "fromWarehouse", fetch = FetchType.LAZY)
-    private List<StockMovementEntity> outMovements;
-
-    @OneToMany(mappedBy = "toWarehouse", fetch = FetchType.LAZY)
-    private List<StockMovementEntity> inMovements;
-
-    @OneToMany(mappedBy = "warehouse", fetch = FetchType.LAZY)
-    private List<GoodsReceiptEntity> goodsReceipts;
-
-    @OneToMany(mappedBy = "warehouse", fetch = FetchType.LAZY)
-    private List<ProductSerialEntity> productSerials;
 }

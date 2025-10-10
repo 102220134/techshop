@@ -22,12 +22,8 @@ public class StockMovementEntity {
     private VariantEntity variant;
 
     @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="from_warehouse_id")
-    private WarehouseEntity fromWarehouse;
-
-    @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="to_warehouse_id")
-    private WarehouseEntity toWarehouse;
+    @JoinColumn(name="location_id")
+    private InventoryLocationEntity inventoryLocation;
 
     private Integer quantityDelta;
 
