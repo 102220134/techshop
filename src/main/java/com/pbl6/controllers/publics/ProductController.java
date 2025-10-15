@@ -2,6 +2,7 @@ package com.pbl6.controllers.publics;
 
 import com.pbl6.dtos.request.FileRequest;
 import com.pbl6.dtos.request.product.ProductFilterRequest;
+import com.pbl6.dtos.request.product.ProductSearchRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.ProductDetailDto;
@@ -14,7 +15,9 @@ import com.pbl6.repositories.ProductRepository;
 import com.pbl6.repositories.VariantRepository;
 import com.pbl6.services.ProductService;
 import com.pbl6.utils.CloudinaryUtil;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.MediaType;
@@ -28,6 +31,7 @@ import java.util.*;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/public/product")
+@Tag(name = "Sản phẩm (get public)")
 public class ProductController {
 
     private final ProductService productService;
@@ -36,39 +40,50 @@ public class ProductController {
     private final ProductRepository productRepository;
     private final VariantRepository variantRepository;
 
-    @GetMapping("/featured/{*slug}")
+    @GetMapping("/featured/{*cateSlug}")
+    @Operation(summary = "Sản phẩm nổi bật")
     public ApiResponseDto<List<ProductDto>> getFeaturedProducts(
-            @PathVariable String slug,
+            @PathVariable String cateSlug,
             @RequestParam(required = false, defaultValue = "20") int size
     ) {
 
         if (size < 1) throw new AppException(ErrorCode.VALIDATION_ERROR);
 
-        slug = slug.startsWith("/") ? slug.substring(1) : slug;
+        cateSlug = cateSlug.startsWith("/") ? cateSlug.substring(1) : cateSlug;
 
         ApiResponseDto<List<ProductDto>> response = new ApiResponseDto<>();
-        response.setData(productService.getFeaturedProducts(slug, size));
+        response.setData(productService.getFeaturedProducts(cateSlug, size));
         return response;
     }
 
-    @GetMapping("/best_seller/{*slug}")
+    @GetMapping("/search")
+    @Operation(summary = "Tìm kiếm theo keyword")
+    public ApiResponseDto<PageDto<ProductDto>> getFeaturedProducts(@ParameterObject ProductSearchRequest req) {
+        PageDto<ProductDto> products = new PageDto<>(productService.searchProduct(req,false));
+        ApiResponseDto<PageDto<ProductDto>> response = new ApiResponseDto<>();
+        response.setData(products);
+        return response;
+    }
+
+    @GetMapping("/best_seller/{*cateSlug}")
+    @Operation(summary = "Sản phẩm top lượt bán")
     public ApiResponseDto<List<ProductDto>> getBestSellerProducts(
-            @PathVariable String slug,
+            @PathVariable String cateSlug,
             @RequestParam(required = false, defaultValue = "20") int size
     ) {
 
         if (size < 1) throw new AppException(ErrorCode.VALIDATION_ERROR);
 
-        slug = slug.startsWith("/") ? slug.substring(1) : slug;
+        cateSlug = cateSlug.startsWith("/") ? cateSlug.substring(1) : cateSlug;
 
         ApiResponseDto<List<ProductDto>> response = new ApiResponseDto<>();
-        response.setData(productService.getBestSellerProducts(slug, size));
+        response.setData(productService.getBestSellerProducts(cateSlug, size));
         return response;
     }
-
-    @GetMapping("/search/{*slugPath}")
+    @Operation(summary = "Lọc sản phẩm")
+    @GetMapping("/filter/{*cateSlug}")
     public ApiResponseDto<PageDto<ProductDto>> searchProducts(
-            @PathVariable String slugPath,
+            @PathVariable String cateSlug,
             @ParameterObject ProductFilterRequest req,
             @RequestParam @Schema(defaultValue = """
                     {
@@ -94,8 +109,8 @@ public class ProductController {
         }
 
         req.setFilter(filters);
-        slugPath = slugPath.startsWith("/") ? slugPath.substring(1) : slugPath;
-        PageDto<ProductDto> products = new PageDto<>(productService.searchProduct(slugPath, req, false));
+        cateSlug = cateSlug.startsWith("/") ? cateSlug.substring(1) : cateSlug;
+        PageDto<ProductDto> products = new PageDto<>(productService.filterProduct(cateSlug, req, false));
         ApiResponseDto<PageDto<ProductDto>> response = new ApiResponseDto<>();
         response.setData(products);
 
@@ -103,6 +118,7 @@ public class ProductController {
     }
 
     @GetMapping("/{slug}/detail")
+    @Operation(summary = "Chi tiết sản phẩm")
     public ApiResponseDto<ProductDetailDto> getProductDetail(
             @PathVariable String slug
     ) {

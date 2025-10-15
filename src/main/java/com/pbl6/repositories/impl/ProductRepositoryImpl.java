@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pbl6.constants.QueryConstants;
 import com.pbl6.dtos.projection.ProductProjection;
 import com.pbl6.dtos.request.product.ProductFilterRequest;
+import com.pbl6.dtos.request.product.ProductSearchRequest;
 import com.pbl6.dtos.response.MediaDto;
 import com.pbl6.dtos.response.ProductDetailDto;
 import com.pbl6.dtos.response.VariantDto;
@@ -40,7 +41,7 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
     );
 
     @Override
-    public Page<ProductProjection> searchProducts(Long categoryId, ProductFilterRequest req, boolean includeInactive, boolean isOnlyInStock) {
+    public Page<ProductProjection> filterProducts(Long categoryId, ProductFilterRequest req, boolean includeInactive, boolean isOnlyInStock) {
         // Build main query using simplified approach
         StringBuilder mainSql = new StringBuilder(QueryConstants.PRODUCT_SEARCH_BASE);
         applyActive(mainSql, includeInactive);
@@ -57,7 +58,7 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
         // Execute main query
         Query mainQuery = em.createNativeQuery(mainSql.toString());
         setQueryParameters(mainQuery, categoryId, req);
-        applyPagination(mainQuery, req);
+        applyPagination(mainQuery, req.getPage(),req.getSize());
         
         List<Object[]> rows = mainQuery.getResultList();
         List<ProductProjection> result = mapToProductProjection(rows);
@@ -116,6 +117,67 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
                 .findFirst()
                 .map(this::mapRowToProjection);
     }
+
+    @Override
+    public Page<ProductProjection> searchProductByKeyword(ProductSearchRequest req, boolean includeInactive, boolean isOnlyInStock) {
+        StringBuilder mainSql = new StringBuilder(QueryConstants.PRODUCT_SEARCH_BASE);
+
+        String keyword = req.getQ();
+
+        if (keyword == null || keyword.isBlank()) {
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(req.getPage() - 1, req.getSize()), 0);
+        }
+
+        applyActive(mainSql, includeInactive);
+
+        if (keyword != null && !keyword.isBlank()) {
+            mainSql.append(" AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) ")
+                    .append(" OR LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')) ")
+                    .append(" OR LOWER(p.slug) LIKE LOWER(CONCAT('%', :keyword, '%')) ) ");
+        }
+
+        if (isOnlyInStock) {
+            mainSql.append(" AND (SELECT COALESCE(SUM(i.stock), 0) - COALESCE(SUM(i.reserved_stock), 0) ")
+                    .append("FROM variants v LEFT JOIN inventories i ON i.variant_id = v.id ")
+                    .append("WHERE v.product_id = p.id AND v.is_active = 1) > 0 ");
+        }
+
+        // Tạo query chính
+        Query mainQuery = em.createNativeQuery(mainSql.toString());
+
+        if (keyword != null && !keyword.isBlank()) {
+            mainQuery.setParameter("keyword", keyword);
+        }
+
+        applyPagination(mainQuery, req.getPage(),req.getSize());
+
+        List<Object[]> rows = mainQuery.getResultList();
+        List<ProductProjection> result = mapToProductProjection(rows);
+
+        // Query đếm tổng số bản ghi
+        StringBuilder countSql = new StringBuilder(QueryConstants.PRODUCT_COUNT_BASE);
+        applyActive(countSql, includeInactive);
+
+        if (keyword != null && !keyword.isBlank()) {
+            countSql.append(" AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) ")
+                    .append(" OR LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')) ")
+                    .append(" OR LOWER(p.slug) LIKE LOWER(CONCAT('%', :keyword, '%')) ) ");
+        }
+
+        if (isOnlyInStock) {
+            countSql.append(QueryConstants.STOCK_AVAILABILITY_EXISTS);
+        }
+
+        Query countQuery = em.createNativeQuery(countSql.toString());
+        if (keyword != null && !keyword.isBlank()) {
+            countQuery.setParameter("keyword", keyword);
+        }
+
+        long total = ((Number) countQuery.getSingleResult()).longValue();
+
+        return new PageImpl<>(result, PageRequest.of(req.getPage() - 1, req.getSize()), total);
+    }
+
 
     private void applyActive(StringBuilder sql, boolean includeInactive) {
         if (!includeInactive) {
@@ -178,10 +240,10 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
         }
     }
     
-    private void applyPagination(Query query, ProductFilterRequest req) {
-        int offset = (req.getPage() - 1) * req.getSize();
+    private void applyPagination(Query query, int page, int size) {
+        int offset = (page - 1) * size;
         query.setFirstResult(offset);
-        query.setMaxResults(req.getSize());
+        query.setMaxResults(size);
     }
     
     private List<ProductProjection> mapToProductProjection(List<Object[]> rows) {

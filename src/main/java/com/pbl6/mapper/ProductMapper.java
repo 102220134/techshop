@@ -28,23 +28,23 @@ public class ProductMapper {
                 ))
                 .build();
     }
-
-    public ProductDetailDto toDetailDto(ProductProjection projection) {
-        if (projection == null) {
-            return null;
-        }
-        return ProductDetailDto.builder()
-                .id(projection.getId())
-                .name(projection.getName())
-                .description(projection.getDescription())
-                .slug(projection.getSlug())
-                .thumbnail(projection.getThumbnail())
-                .detail(projection.getDetail())
-                .isAvailable(projection.getAvailableStock()>0)
-                .rating(new ProductDetailDto.RatingSummary(
-                        projection.getTotal() != null ? projection.getTotal() : 0L,
-                        projection.getAverage() != null ? projection.getAverage() : 0.0
-                ))
-                .build();
-    }
+//
+//    public ProductDetailDto toDetailDto(ProductProjection projection) {
+//        if (projection == null) {
+//            return null;
+//        }
+//        return ProductDetailDto.builder()
+//                .id(projection.getId())
+//                .name(projection.getName())
+//                .description(projection.getDescription())
+//                .slug(projection.getSlug())
+//                .thumbnail(projection.getThumbnail())
+//                .detail(projection.getDetail())
+//                .isAvailable(projection.getAvailableStock()>0)
+//                .rating(new ProductDetailDto.RatingSummary(
+//                        projection.getTotal() != null ? projection.getTotal() : 0L,
+//                        projection.getAverage() != null ? projection.getAverage() : 0.0
+//                ))
+//                .build();
+//    }
 }

@@ -4,7 +4,10 @@ import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.CategoryDto;
 import com.pbl6.dtos.response.FilterDto;
 import com.pbl6.services.FilterService;
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +21,7 @@ import java.util.List;
 public class FilterController {
     private final FilterService filterService;
     @GetMapping("/{*slug}")
+    @Operation(summary = "Để tạo dynamic filter cho sản phẩm")
     public ApiResponseDto<List<FilterDto>> getFiltersByCateSlug(@PathVariable("slug") String slug) {
         String cleanSlug = slug.startsWith("/") ? slug.substring(1) : slug;
         ApiResponseDto<List<FilterDto>> response = new ApiResponseDto<>();

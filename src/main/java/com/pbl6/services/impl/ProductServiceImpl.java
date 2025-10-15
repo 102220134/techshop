@@ -2,6 +2,7 @@ package com.pbl6.services.impl;
 
 import com.pbl6.dtos.projection.ProductProjection;
 import com.pbl6.dtos.request.product.ProductFilterRequest;
+import com.pbl6.dtos.request.product.ProductSearchRequest;
 import com.pbl6.dtos.response.*;
 import com.pbl6.entities.CategoryEntity;
 import com.pbl6.enums.PromotionType;
@@ -60,34 +61,8 @@ public class ProductServiceImpl implements ProductService {
                 .toList();
 
         // B3: Với N sản phẩm đã chọn, mới apply promotion
-        return topProducts.stream()
-                .map(projection -> {
-                    PromotionDto promotion = promotionService.findBestPromotion(projection.getId(), projection.getPrice());
 
-                    BigDecimal specialPrice = promotion != null
-                            ? promotion.getSpecialPrice()
-                            : projection.getPrice();
-
-                    return ProductDto.builder()
-                            .id(projection.getId())
-                            .name(projection.getName())
-                            .description(projection.getDescription())
-                            .slug(projection.getSlug())
-                            .thumbnail(projection.getThumbnail())
-                            .price(projection.getPrice())
-                            .special_price(specialPrice)
-                            .promotion(promotion)
-                            .stock(projection.getStock() != null ? projection.getStock() : 0)
-                            .reserved_stock(projection.getReservedStock() != null ? projection.getReservedStock() : 0)
-                            .available_stock(projection.getAvailableStock())
-                            .sold(projection.getSold() != null ? projection.getSold() : 0)
-                            .rating(new ProductDto.RatingSummary(
-                                    projection.getTotal() != null ? projection.getTotal() : 0L,
-                                    projection.getAverage() != null ? projection.getAverage() : 0.0
-                            ))
-                            .build();
-                })
-                .toList();
+        return topProducts.stream().map(this::toDto).toList();
     }
 
     @Override
@@ -105,65 +80,28 @@ public class ProductServiceImpl implements ProductService {
                 .limit(size)
                 .toList();
 
-        return topProducts.stream()
-                .map(projection -> {
-                    PromotionDto promotion = promotionService.findBestPromotion(projection.getId(), projection.getPrice());
 
-                    BigDecimal specialPrice = promotion != null
-                            ? promotion.getSpecialPrice()
-                            : projection.getPrice();
-
-                    return ProductDto.builder()
-                            .id(projection.getId())
-                            .name(projection.getName())
-                            .description(projection.getDescription())
-                            .slug(projection.getSlug())
-                            .thumbnail(projection.getThumbnail())
-                            .price(projection.getPrice())
-                            .special_price(specialPrice)
-                            .promotion(promotion)
-                            .stock(projection.getStock() != null ? projection.getStock() : 0)
-                            .reserved_stock(projection.getReservedStock() != null ? projection.getReservedStock() : 0)
-                            .available_stock(projection.getAvailableStock())
-                            .sold(projection.getSold() != null ? projection.getSold() : 0)
-                            .rating(new ProductDto.RatingSummary(
-                                    projection.getTotal() != null ? projection.getTotal() : 0L,
-                                    projection.getAverage() != null ? projection.getAverage() : 0.0
-                            ))
-                            .build();
-                })
-                .toList();
+        return topProducts.stream().map(this::toDto).toList();
     }
 
     @Override
-    public Page<ProductDto> searchProduct(String slugPath, ProductFilterRequest req, boolean includeInactive) {
+    public Page<ProductDto> filterProduct(String slugPath, ProductFilterRequest req, boolean includeInactive) {
         CategoryEntity categoryEntity = categoryService.resolveBySlugPath(slugPath);
         entityUtil.ensureActive(categoryEntity, false);
 
-        Page<ProductProjection> projectionPage = productRepositoryCustom.searchProducts(
+        Page<ProductProjection> projectionPage = productRepositoryCustom.filterProducts(
                 categoryEntity.getId(), req, includeInactive, true);
 
-        return projectionPage.map(projection -> {
-            PromotionDto promotion = promotionService.findBestPromotion(projection.getId(), projection.getPrice());
-            return ProductDto.builder()
-                    .id(projection.getId())
-                    .name(projection.getName())
-                    .description(projection.getDescription())
-                    .slug(projection.getSlug())
-                    .thumbnail(projection.getThumbnail())
-                    .price(projection.getPrice())
-                    .special_price(promotion != null ? promotion.getSpecialPrice() : projection.getPrice())
-                    .promotion(promotion)
-                    .stock(projection.getStock() != null ? projection.getStock() : 0)
-                    .reserved_stock(projection.getReservedStock() != null ? projection.getReservedStock() : 0)
-                    .available_stock(projection.getAvailableStock())
-                    .sold(projection.getSold() != null ? projection.getSold() : 0)
-                    .rating(new ProductDto.RatingSummary(
-                            projection.getTotal() != null ? projection.getTotal() : 0L,
-                            projection.getAverage() != null ? projection.getAverage() : 0.0
-                    ))
-                    .build();
-        });
+
+        return projectionPage.map(this::toDto);
+    }
+
+    @Override
+    public Page<ProductDto> searchProduct(ProductSearchRequest req, boolean includeInactive) {
+        Page<ProductProjection> projectionPage = productRepositoryCustom.searchProductByKeyword(
+                req, includeInactive, true);
+
+        return projectionPage.map(this::toDto);
     }
 
     @Override
@@ -230,5 +168,30 @@ public class ProductServiceImpl implements ProductService {
         double ratingScore = p.getTotal() != null ? p.getAverage() * 5 : 0;
         double soldScore = p.getSold() != null ? p.getSold() * 0.5 : 0;
         return ratingScore + soldScore;
+    }
+
+    private ProductDto toDto(ProductProjection projection){
+        PromotionDto promotion = promotionService.findBestPromotion(projection.getId(), projection.getPrice());
+        BigDecimal specialPrice = promotion != null
+                ? promotion.getSpecialPrice()
+                : projection.getPrice();
+        return ProductDto.builder()
+                .id(projection.getId())
+                .name(projection.getName())
+                .description(projection.getDescription())
+                .slug(projection.getSlug())
+                .thumbnail(projection.getThumbnail())
+                .price(projection.getPrice())
+                .special_price(specialPrice)
+                .promotion(promotion)
+                .stock(projection.getStock() != null ? projection.getStock() : 0)
+                .reserved_stock(projection.getReservedStock() != null ? projection.getReservedStock() : 0)
+                .available_stock(projection.getAvailableStock())
+                .sold(projection.getSold() != null ? projection.getSold() : 0)
+                .rating(new ProductDto.RatingSummary(
+                        projection.getTotal() != null ? projection.getTotal() : 0L,
+                        projection.getAverage() != null ? projection.getAverage() : 0.0
+                ))
+                .build();
     }
 }

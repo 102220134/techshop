@@ -48,4 +48,6 @@ public interface ProductRepository extends JpaRepository<ProductEntity,Long> , J
             @Param("includeInactive") boolean includeInactive
     );
 
+
+
 }
