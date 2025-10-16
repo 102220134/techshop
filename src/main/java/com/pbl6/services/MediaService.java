@@ -1,6 +1,6 @@
 package com.pbl6.services;
 
-import com.pbl6.dtos.response.MediaDto;
+import com.pbl6.dtos.response.product.MediaDto;
 
 import java.util.List;
 

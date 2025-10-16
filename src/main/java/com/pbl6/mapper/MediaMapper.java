@@ -1,10 +1,8 @@
 package com.pbl6.mapper;
 
-import com.pbl6.dtos.response.MediaDto;
+import com.pbl6.dtos.response.product.MediaDto;
 import com.pbl6.entities.MediaEntity;
 import org.springframework.stereotype.Component;
-
-import javax.print.attribute.standard.Media;
 
 @Component
 public class MediaMapper {

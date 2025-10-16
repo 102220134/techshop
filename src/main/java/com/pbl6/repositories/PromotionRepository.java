@@ -27,4 +27,19 @@ public interface PromotionRepository extends JpaRepository<PromotionEntity, Long
             nativeQuery = true
     )
     List<PromotionEntity> findActiveByProductId(@Param("productId") Long productId);
+
+    @Query("""
+    SELECT DISTINCT p FROM PromotionEntity p
+    JOIN FETCH p.targets t
+    WHERE p.isActive = true
+      AND p.startDate <= CURRENT_TIMESTAMP
+      AND p.endDate >= CURRENT_TIMESTAMP
+      AND (
+            t.targetType = 'GLOBAL'
+         OR (t.targetType = 'PRODUCT' AND t.targetId IN :productIds)
+      )
+""")
+    List<PromotionEntity> findActivePromotionsForProducts(@Param("productIds") List<Long> productIds);
+
+
 }

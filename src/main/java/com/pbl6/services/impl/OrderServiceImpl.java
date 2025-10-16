@@ -2,9 +2,7 @@ package com.pbl6.services.impl;
 
 import com.pbl6.dtos.request.checkout.OrderItemRequest;
 import com.pbl6.dtos.request.checkout.OrderRequest;
-import com.pbl6.dtos.response.PromotionDto;
 import com.pbl6.dtos.response.order.OrderDto;
-import com.pbl6.dtos.response.order.OrderItemDto;
 import com.pbl6.entities.*;
 import com.pbl6.enums.OrderStatus;
 import com.pbl6.mapper.OrderMapper;
@@ -19,8 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +33,8 @@ public class OrderServiceImpl implements OrderService {
     final EntityUtil entityUtil;
     final OrderMapper orderMapper;
 
+    // ---------------------- CREATE ORDER ----------------------
+
     @Override
     @Transactional
     public OrderEntity createOrder(OrderRequest req) {
@@ -45,45 +44,65 @@ public class OrderServiceImpl implements OrderService {
             store.setId(req.getStoreId());
         }
 
-        // Dùng mapper tạo entity base
-        OrderEntity order = orderMapper.toEntity(UserEntity.builder().id(req.getUserId()).build(), req, store);
+        // 1️⃣ Tạo Order base
+        OrderEntity order = orderMapper.toEntity(
+                UserEntity.builder().id(req.getUserId()).build(), req, store
+        );
 
-        // Tính toán tổng tiền và item
+        // 2️⃣ Lấy toàn bộ variantId → productId map
+        Map<Long, VariantEntity> variantMap = variantRepository.findAllById(
+                req.getItems().stream().map(OrderItemRequest::getVariantId).toList()
+        ).stream().collect(Collectors.toMap(VariantEntity::getId, v -> v));
+
+        List<Long> productIds = variantMap.values().stream()
+                .map(v -> v.getProduct().getId())
+                .distinct()
+                .toList();
+
+        // 3️⃣ Lấy toàn bộ promotions áp dụng theo product
+        Map<Long, List<PromotionEntity>> promotionMap =
+                promotionService.getActivePromotionsGroupedByProduct(productIds);
+
+        // 4️⃣ Tính toán từng item
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItemEntity> orderItems = new ArrayList<>();
 
         for (OrderItemRequest itemReq : req.getItems()) {
-            VariantEntity variant = entityUtil.ensureExists(variantRepository.findById(itemReq.getVariantId()));
-            entityUtil.ensureActive(variant,false);
-            PromotionDto promotion = promotionService.findBestPromotion(
-                    variant.getProduct().getId(), variant.getPrice());
+            VariantEntity variant = variantMap.get(itemReq.getVariantId());
+            entityUtil.ensureActive(variant, false);
 
-            BigDecimal specialPrice = promotion == null ? variant.getPrice() : promotion.getSpecialPrice();
-            BigDecimal itemPrice = specialPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
-            totalAmount = totalAmount.add(itemPrice);
+            List<PromotionEntity> promos = promotionMap.getOrDefault(
+                    variant.getProduct().getId(), List.of()
+            );
+
+            BigDecimal basePrice = variant.getPrice();
+            BigDecimal finalPrice = promotionService.calculateFinalPrice(basePrice, promos);
+
+            BigDecimal lineTotal = finalPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            totalAmount = totalAmount.add(lineTotal);
 
             orderItems.add(OrderItemEntity.builder()
-                            .order(order)
+                    .order(order)
                     .variant(variant)
                     .productName(variant.getProduct().getName())
                     .sku(variant.getSku())
-                    .price(variant.getPrice())
+                    .price(basePrice)
                     .quantity(itemReq.getQuantity())
-                    .discountAmount(variant.getPrice().subtract(specialPrice))
-                    .promotion(promotion == null ? null :
-                            PromotionEntity.builder().id(promotion.getId()).build())
+                    .discountAmount(basePrice.subtract(finalPrice))
+                    .promotions(promos)
                     .build());
         }
 
+        // 5️⃣ Cập nhật tổng tiền và lưu
         order.setTotalAmount(totalAmount);
-
-        // Lưu order + items
         order = orderRepository.save(order);
         order.setOrderItems(orderItems);
         orderItemRepository.saveAll(orderItems);
 
         return order;
     }
+
+    // ---------------------- GET USER ORDERS ----------------------
 
     @Override
     public List<OrderDto> getOrderByUser(Long userID) {
@@ -92,11 +111,51 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
     }
 
+    // ---------------------- MARK STATUS ----------------------
+
     @Override
     public void markOrderStatus(Long orderId, OrderStatus status) {
         OrderEntity order = entityUtil.ensureExists(orderRepository.findById(orderId));
         order.setStatus(status);
         orderRepository.save(order);
     }
-}
 
+    // ---------------------- PRICE CALCULATION ----------------------
+//
+//    private BigDecimal calculateFinalPrice(BigDecimal basePrice, List<PromotionEntity> promotions) {
+//        if (basePrice == null || promotions == null || promotions.isEmpty()) return basePrice;
+//
+//        List<PromotionEntity> sortedPromos = promotions.stream()
+//                .sorted(Comparator.comparingInt(p -> Optional.ofNullable(p.getPriority()).orElse(0)))
+//                .toList();
+//
+//        BigDecimal currentPrice = basePrice;
+//
+//        for (PromotionEntity promo : sortedPromos) {
+//            currentPrice = applyPromotion(currentPrice, promo);
+//            if (Boolean.TRUE.equals(promo.getExclusive())) break;
+//        }
+//
+//        return currentPrice.max(BigDecimal.ZERO);
+//    }
+//
+//    private BigDecimal applyPromotion(BigDecimal basePrice, PromotionEntity promo) {
+//        if (promo == null || basePrice == null) return basePrice;
+//
+//        BigDecimal discount = BigDecimal.ZERO;
+//
+//        switch (promo.getDiscountType()) {
+//            case PERCENTAGE -> discount = basePrice
+//                    .multiply(promo.getDiscountValue())
+//                    .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+//            case AMOUNT-> discount = promo.getDiscountValue();
+//        }
+//
+//        if (promo.getMaxDiscountValue() != null &&
+//            discount.compareTo(promo.getMaxDiscountValue()) > 0) {
+//            discount = promo.getMaxDiscountValue();
+//        }
+//
+//        return basePrice.subtract(discount).max(BigDecimal.ZERO);
+//    }
+}

@@ -1,7 +1,7 @@
-package com.pbl6.dtos.response;
+package com.pbl6.dtos.response.product;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.pbl6.dtos.response.promotion.PromotionDto;
 import lombok.Builder;
 
 import java.math.BigDecimal;
@@ -19,7 +19,7 @@ public record ProductDto(
         int stock,
         int reserved_stock,
         int available_stock,
-        PromotionDto promotion,
+        List<PromotionDto> promotions,
         RatingSummary rating,
         @JsonIgnore
         int sold,

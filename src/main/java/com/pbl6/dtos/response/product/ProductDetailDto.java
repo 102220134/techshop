@@ -1,11 +1,10 @@
-package com.pbl6.dtos.response;
+package com.pbl6.dtos.response.product;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pbl6.dtos.response.promotion.PromotionDto;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Builder
@@ -36,7 +35,7 @@ public class ProductDetailDto {
     private String description;
     private String slug;
     private String thumbnail;
-    private PromotionDto promotion;
+    private List<PromotionDto> promotions;
     private ObjectNode detail;
     private boolean isAvailable;
     private List<VariantDto> variants;

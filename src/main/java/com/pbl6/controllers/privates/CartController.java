@@ -2,6 +2,7 @@ package com.pbl6.controllers.privates;
 
 import com.pbl6.dtos.request.product.AddToCartRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
+import com.pbl6.dtos.response.cart.CartItemDto;
 import com.pbl6.entities.UserEntity;
 import com.pbl6.services.CartService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,10 +13,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("api/cart")
@@ -33,6 +33,13 @@ public class CartController {
         ApiResponseDto<String> response = new ApiResponseDto<>();
         response.setData("Add to cart success");
         return response;
+    }
+
+    @GetMapping("items")
+    @Operation(summary = "Danh sách sản phẩm trong giỏ hàng  ", security = { @SecurityRequirement(name = "bearerAuth") })
+    public ApiResponseDto<List<CartItemDto>> getCartItems() {
+        Long userId = getCurrentUserId();
+        return new ApiResponseDto<>(cartService.getCartItems(userId));
     }
 
     private Long getCurrentUserId() {

@@ -1,6 +1,6 @@
 package com.pbl6.services.impl;
 
-import com.pbl6.dtos.response.MediaDto;
+import com.pbl6.dtos.response.product.MediaDto;
 import com.pbl6.mapper.MediaMapper;
 import com.pbl6.repositories.MediaRepository;
 import com.pbl6.services.MediaService;

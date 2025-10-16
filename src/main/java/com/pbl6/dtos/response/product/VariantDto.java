@@ -1,4 +1,4 @@
-package com.pbl6.dtos.response;
+package com.pbl6.dtos.response.product;
 
 import lombok.Builder;
 

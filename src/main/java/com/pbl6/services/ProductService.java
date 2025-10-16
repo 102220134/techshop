@@ -2,8 +2,8 @@ package com.pbl6.services;
 
 import com.pbl6.dtos.request.product.ProductFilterRequest;
 import com.pbl6.dtos.request.product.ProductSearchRequest;
-import com.pbl6.dtos.response.ProductDetailDto;
-import com.pbl6.dtos.response.ProductDto;
+import com.pbl6.dtos.response.product.ProductDetailDto;
+import com.pbl6.dtos.response.product.ProductDto;
 import org.springframework.data.domain.Page;
 
 import java.util.List;

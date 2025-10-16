@@ -1,6 +1,6 @@
 package com.pbl6.dtos.response.order;
 
-import com.pbl6.dtos.response.VariantDto;
+import com.pbl6.dtos.response.product.VariantDto;
 import lombok.Builder;
 
 import java.math.BigDecimal;

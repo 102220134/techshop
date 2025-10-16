@@ -1,12 +1,11 @@
 package com.pbl6.mapper;
 
 import com.pbl6.dtos.request.checkout.OrderRequest;
-import com.pbl6.dtos.response.VariantDto;
+import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.dtos.response.order.OrderDto;
 import com.pbl6.dtos.response.order.OrderItemDto;
 import com.pbl6.entities.*;
 import com.pbl6.enums.OrderStatus;
-import com.pbl6.enums.PaymentMethod;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;

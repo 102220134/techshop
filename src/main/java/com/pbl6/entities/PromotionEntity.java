@@ -1,54 +1,49 @@
 package com.pbl6.entities;
 
+import com.pbl6.enums.DiscountType;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "promotions")
-@Builder
 public class PromotionEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String name;
-
     private String description;
 
-    @Column(name = "discount_type")
-    private String discountType; // percentage, fixed, special_price
+    @Enumerated(EnumType.STRING)
+    private DiscountType discountType;
 
-    @Column(name = "discount_value")
     private BigDecimal discountValue;
+    private BigDecimal maxDiscountValue;
 
-    @Column(name = "start_date")
+    private Integer priority;
+    private Boolean exclusive = false;
+
     private LocalDateTime startDate;
-
-    @Column(name = "end_date")
     private LocalDateTime endDate;
 
-    private String status; // active, expired, draft
+    private boolean isActive;
 
-    @Enumerated(EnumType.STRING)
-    private Scope scope;
+    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<PromotionTargetEntity> targets;
 
-    public enum Scope {
-        ALL, PRODUCT
-    }
+    @ManyToMany(mappedBy = "promotions")
+    private List<OrderItemEntity> orderItems = new ArrayList<>();
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "promotion_products",
-            joinColumns = @JoinColumn(name = "promotion_id"),
-            inverseJoinColumns = @JoinColumn(name = "product_id")
-    )
-    private Set<ProductEntity> products;
 }
+

@@ -1,13 +1,11 @@
 package com.pbl6.controllers.publics;
 
-import com.pbl6.dtos.request.FileRequest;
 import com.pbl6.dtos.request.product.ProductFilterRequest;
 import com.pbl6.dtos.request.product.ProductSearchRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.PageDto;
-import com.pbl6.dtos.response.ProductDetailDto;
-import com.pbl6.dtos.response.ProductDto;
-import com.pbl6.entities.CategoryEntity;
+import com.pbl6.dtos.response.product.ProductDetailDto;
+import com.pbl6.dtos.response.product.ProductDto;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.repositories.CategoryRepository;
@@ -20,11 +18,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 

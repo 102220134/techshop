@@ -3,6 +3,7 @@ package com.pbl6.entities;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -32,9 +33,14 @@ public class OrderItemEntity {
     @Column(nullable=false, length=200)
     private String productName;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="promotion_id", nullable=false)
-    private PromotionEntity promotion;
+    @ManyToMany
+    @JoinTable(
+            name = "promotion_order_item",
+            joinColumns = @JoinColumn(name = "order_item_id"),
+            inverseJoinColumns = @JoinColumn(name = "promotion_id")
+    )
+    private List<PromotionEntity> promotions = new ArrayList<>();
+
 
     @Column(nullable=false, length=100)
     private String sku;

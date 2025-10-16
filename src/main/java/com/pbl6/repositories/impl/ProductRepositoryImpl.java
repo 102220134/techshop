@@ -5,9 +5,6 @@ import com.pbl6.constants.QueryConstants;
 import com.pbl6.dtos.projection.ProductProjection;
 import com.pbl6.dtos.request.product.ProductFilterRequest;
 import com.pbl6.dtos.request.product.ProductSearchRequest;
-import com.pbl6.dtos.response.MediaDto;
-import com.pbl6.dtos.response.ProductDetailDto;
-import com.pbl6.dtos.response.VariantDto;
 import com.pbl6.repositories.ProductRepositoryCustom;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
@@ -17,13 +14,11 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor

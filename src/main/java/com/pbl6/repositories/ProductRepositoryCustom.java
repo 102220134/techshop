@@ -3,7 +3,6 @@ package com.pbl6.repositories;
 import com.pbl6.dtos.projection.ProductProjection;
 import com.pbl6.dtos.request.product.ProductFilterRequest;
 import com.pbl6.dtos.request.product.ProductSearchRequest;
-import com.pbl6.dtos.response.ProductDetailDto;
 import org.springframework.data.domain.Page;
 
 import java.util.List;

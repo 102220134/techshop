@@ -1,9 +1,7 @@
 package com.pbl6.repositories;
 
 import com.pbl6.entities.InventoryEntity;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -11,7 +9,6 @@ import org.springframework.stereotype.Repository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 @Repository
 public interface InventoryRepository extends JpaRepository<InventoryEntity, Long> {
@@ -25,7 +22,7 @@ public interface InventoryRepository extends JpaRepository<InventoryEntity, Long
        FROM InventoryEntity i
        WHERE i.variant.id = :variantId
        """)
-    Long getAvailableStockByVariantId(@Param("variantId") Long variantId);
+    int getAvailableStockByVariantId(@Param("variantId") Long variantId);
 
     @Query(value = """
     SELECT * FROM inventory i 
