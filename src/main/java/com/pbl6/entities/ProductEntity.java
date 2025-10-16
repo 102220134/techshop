@@ -58,4 +58,16 @@ public class ProductEntity implements Activatable {
 
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY)
     private List<ReviewEntity> reviews;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "product_relations",
+            joinColumns = @JoinColumn(name = "product_id"), // cột hiện tại
+            inverseJoinColumns = @JoinColumn(name = "related_product_id") // cột liên kết
+    )
+    private List<ProductEntity> relatedProducts;
+
+    // ✅ Nếu muốn truy ngược lại (đối xứng)
+    @ManyToMany(mappedBy = "relatedProducts",fetch = FetchType.LAZY)
+    private List<ProductEntity> relatedTo;
 }

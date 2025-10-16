@@ -13,6 +13,8 @@ import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.mapper.ProductMapper;
 import com.pbl6.mapper.PromotionMapper;
+import com.pbl6.repositories.ProductAttributeValueRepository;
+import com.pbl6.repositories.ProductRepository;
 import com.pbl6.repositories.ProductRepositoryCustom;
 import com.pbl6.repositories.WareHouseRepository;
 import com.pbl6.services.*;
@@ -37,6 +39,8 @@ public class ProductServiceImpl implements ProductService {
     private final MediaService mediaService;
     private final PromotionService promotionService;
     private final PromotionMapper promotionMapper;
+    private final ProductRepository productRepository;
+    private final ProductAttributeValueRepository productAttributeValueRepository;
 
     // --------------------------------------------------------------
     // FEATURED PRODUCTS
@@ -95,7 +99,7 @@ public class ProductServiceImpl implements ProductService {
     public Page<ProductDto> searchProduct(ProductSearchRequest req, boolean includeInactive) {
         Page<ProductProjection> projectionPage =
                 productRepositoryCustom.searchProductByKeyword(req, includeInactive, true);
-
+//        return projectionPage.map(p -> ProductDto.builder().name(p.getName()).build());
         return applyPromotions(projectionPage);
     }
 
@@ -138,6 +142,30 @@ public class ProductServiceImpl implements ProductService {
 
         List<MediaDto> medias = mediaService.findByProductId(projection.getId());
 
+        List<ProductDetailDto.SiblingDto> siblings = productRepository.findSiblingsByProductId(projection.getId())
+                .stream()
+                .map(product -> {
+                    // Lấy attribute option (nếu có)
+                    var optionAttrs = productAttributeValueRepository.findOptionAttributesByProductId(product.getId());
+
+                    String relatedName = optionAttrs.stream()
+                            .filter(pav -> "version".equals(pav.getAttribute().getCode()))
+                            .findFirst() // trả về Optional<ProductAttributeValueEntity>
+                            .map(pav -> pav.getAttributeValue().getLabel()) // ánh xạ sang label
+                            .orElse(null); // nếu không có thì null
+
+
+
+                    return ProductDetailDto.SiblingDto.builder()
+                            .id(product.getId())
+                            .slug(product.getSlug())
+                            .name(product.getName())
+                            .related_name(relatedName)
+                            .thumbnail(product.getThumbnail())
+                            .build();
+                })
+                .toList();
+
         return ProductDetailDto.builder()
                 .id(projection.getId())
                 .name(projection.getName())
@@ -153,6 +181,7 @@ public class ProductServiceImpl implements ProductService {
                 .variants(variants)
                 .medias(medias)
                 .promotions(promos.isEmpty() ? null : promos.stream().map(promotionMapper::toDto).toList())
+                .siblings(siblings)
                 .build();
     }
 

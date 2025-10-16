@@ -48,6 +48,21 @@ public interface ProductRepository extends JpaRepository<ProductEntity,Long> , J
             @Param("includeInactive") boolean includeInactive
     );
 
+    @Query(value = """
+    SELECT DISTINCT p.*
+    FROM products p
+    WHERE p.id IN (
+        SELECT pr.related_product_id
+        FROM product_relations pr
+        WHERE pr.product_id = :productId
+        UNION
+        SELECT pr.product_id
+        FROM product_relations pr
+        WHERE pr.related_product_id = :productId
+    )
+""", nativeQuery = true)
+    List<ProductEntity> findSiblingsByProductId(@Param("productId") Long productId);
+
 
 
 }

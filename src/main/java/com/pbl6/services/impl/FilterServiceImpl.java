@@ -34,6 +34,7 @@ public class FilterServiceImpl implements FilterService {
                 .toList();
 
         return pavRepo.findByProductIdIn(productIds).stream()
+                .filter(pav -> pav.getAttribute() != null && Boolean.TRUE.equals(pav.getAttribute().getIsFilter()))
                 // Group theo attribute code
                 .collect(Collectors.groupingBy(
                         pav -> pav.getAttribute().getCode(),

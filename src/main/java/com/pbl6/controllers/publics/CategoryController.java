@@ -1,6 +1,5 @@
 package com.pbl6.controllers.publics;
 
-import com.pbl6.annotations.ByPassJWT;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.CategoryDto;
 import com.pbl6.services.CategoryService;

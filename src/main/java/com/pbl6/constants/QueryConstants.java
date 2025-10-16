@@ -11,7 +11,7 @@ public final class QueryConstants {
 
     // Simplified product search query using subqueries for better performance
     public static final String PRODUCT_SEARCH_BASE = """
-            SELECT
+            SELECT DISTINCT
                 p.id,
                 p.name,
                 p.description,

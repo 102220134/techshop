@@ -13,8 +13,6 @@ import java.util.Map;
 public class ProductSearchRequest {
     private String q;
 
-    private String dir = "asc";
-
     private Integer page = 1;
 
     private Integer size = 20;

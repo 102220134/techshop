@@ -13,5 +13,16 @@ public interface ProductAttributeValueRepository extends JpaRepository<ProductAt
 
     @EntityGraph(attributePaths = {"attribute", "attributeValue"})
     List<ProductAttributeValueEntity> findByProductIdIn(List<Long> product_id);
+
+    @EntityGraph(attributePaths = {"attribute", "attributeValue"})
+    @Query("""
+    SELECT pav
+    FROM ProductAttributeValueEntity pav
+    JOIN pav.attribute a
+    WHERE pav.product.id = :productId
+      AND a.isOption = true
+""")
+    List<ProductAttributeValueEntity> findOptionAttributesByProductId(@Param("productId") Long productId);
+
 }
 
