@@ -3,7 +3,7 @@ package com.pbl6.services.strategy;
 
 
 import com.pbl6.dtos.request.checkout.PaymentRequest;
-import com.pbl6.dtos.response.BankTransferInfo;
+import com.pbl6.dtos.response.payment.BankTransferInfo;
 import com.pbl6.dtos.response.payment.PaymentInitResponse;
 import com.pbl6.entities.OrderEntity;
 import com.pbl6.entities.PaymentEntity;
@@ -19,6 +19,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Time;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Service
 @RequiredArgsConstructor
@@ -33,8 +34,8 @@ public class BankTransferPayment implements PaymentStrategy {
         PaymentEntity p = PaymentEntity.builder()
                 .order(OrderEntity.builder().id(req.getOrderId()).build())
                 .amount(req.getTotalAmount())
-                .method(PaymentMethod.BANK.getCode())
-                .status(PaymentStatus.PROCESSING.getCode())
+                .method(PaymentMethod.BANK)
+                .status(PaymentStatus.PENDING)
                 .currency("VND")
                 .build();
         p = paymentRepo.save(p);
@@ -66,7 +67,7 @@ public class BankTransferPayment implements PaymentStrategy {
                         .bankName(bankName)
                         .transferContent(content)
                         .qrCodeUrl(qrUrl)
-                        .expireAt(LocalDateTime.now().plusMinutes(5))
+                        .lifeTime(LocalTime.of(0,5,0))
                         .build())
                 .build();
     }

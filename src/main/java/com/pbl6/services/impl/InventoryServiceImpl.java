@@ -7,7 +7,6 @@ import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.repositories.InventoryRepository;
 import com.pbl6.services.InventoryService;
 import com.pbl6.services.ProductSerialService;
-import com.pbl6.services.TransferService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,112 +21,86 @@ import java.util.stream.Collectors;
 public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryRepository inventoryRepository;
-    private final TransferService transferService;
     private final ProductSerialService serialService;
 
-    /**
-     * Xử lý khi khách hàng chọn nhận hàng tại cửa hàng
-     */
+    /** --------------------------
+     *  1️⃣ Xử lý pickup tại cửa hàng
+     *  -------------------------- */
     @Transactional
     @Override
     public void handlePickupAtStore(StoreEntity store, List<OrderItemEntity> orderItems) {
         List<OrderItemEntity> remainingNeeds = new ArrayList<>();
 
-        for (OrderItemEntity orderItem : orderItems) {
-            Long variantId = orderItem.getVariant().getId();
-            int requestedQty = orderItem.getQuantity();
+        for (OrderItemEntity item : orderItems) {
+            Long variantId = item.getVariant().getId();
+            int requestedQty = item.getQuantity();
 
-            InventoryEntity storeInventory = inventoryRepository
+            InventoryEntity inv = inventoryRepository
                     .findByInventoryLocationIdAndVariantId(store.getInventoryLocation().getId(), variantId)
                     .orElse(null);
 
-            int available = (storeInventory == null) ? 0 : storeInventory.getAvailableStock();
+            int available = (inv == null) ? 0 : inv.getAvailableStock();
 
-            // ✅ Case 1: đủ hàng
-            if (available >= requestedQty) {
-                storeInventory.addReservedStock(requestedQty);
-                serialService.reserveSerial(orderItem, store.getInventoryLocation().getId());
-                log.info("[Pickup][Store:{}] Đủ hàng cho variant {} ({} pcs)", store.getName(), variantId, requestedQty);
-                continue;
+            if (available >= requestedQty) { // đủ hàng
+                reserveStock(inv, item, requestedQty);
+                log.info("[Pickup][{}] Đủ hàng variant {} ({} pcs)", store.getName(), variantId, requestedQty);
+            } else if (available > 0) { // thiếu một phần
+                reserveStock(inv, item, available);
+                remainingNeeds.add(sliceItem(item, requestedQty - available));
+                log.info("[Pickup][{}] Thiếu variant {}, cần chuyển thêm {}", store.getName(), variantId, requestedQty - available);
+            } else { // hết hàng
+                remainingNeeds.add(item);
+                log.info("[Pickup][{}] Hết hàng variant {}, cần bổ sung {}", store.getName(), variantId, requestedQty);
             }
-
-            // ✅ Case 2: thiếu hàng một phần
-            if (available > 0) {
-                int needTransfer = requestedQty - available;
-
-                storeInventory.addReservedStock(available);
-                serialService.reserveSerial(sliceItem(orderItem, available), store.getInventoryLocation().getId());
-                log.info("[Pickup][Store:{}] Thiếu hàng variant {}, cần chuyển thêm {} pcs", store.getName(), variantId, needTransfer);
-
-                remainingNeeds.add(sliceItem(orderItem, needTransfer));
-                continue;
-            }
-
-            // ✅ Case 3: hết hàng hoàn toàn
-            log.info("[Pickup][Store:{}] Hết hàng variant {}, cần bổ sung toàn bộ {} pcs", store.getName(), variantId, requestedQty);
-            remainingNeeds.add(orderItem);
         }
 
-        // ✅ Nếu có hàng cần bổ sung
-        if (!remainingNeeds.isEmpty()) {
-            handleWarehouseFulfillment(store.getInventoryLocation(), remainingNeeds);
-        }
+        if (!remainingNeeds.isEmpty()) handleWarehouseFulfillment(store.getInventoryLocation(), remainingNeeds);
     }
 
-    /**
-     * Xử lý khi đơn hàng cần giao tận nơi
-     */
+    /** --------------------------
+     *  2️⃣ Xử lý giao tận nơi
+     *  -------------------------- */
     @Transactional
     @Override
     public void handleShip(List<OrderItemEntity> orderItems) {
-        if (orderItems.isEmpty()) return;
-        handleWarehouseFulfillment(null, orderItems);
+        if (!orderItems.isEmpty()) handleWarehouseFulfillment(null, orderItems);
     }
 
-    /**
-     * Xử lý tìm kho và thực hiện transfer hoặc shipment tùy mục đích
-     */
+    /** --------------------------
+     *  3️⃣ Fulfillment (Transfer hoặc Ship)
+     *  -------------------------- */
     private void handleWarehouseFulfillment(InventoryLocationEntity targetStore, List<OrderItemEntity> items) {
-        Optional<InventoryLocationEntity> singleSource = findWarehouseThatCanFulfillAll(items);
+        findWarehouseThatCanFulfillAll(items).ifPresentOrElse(source -> {
+            items.forEach(item -> {
+                InventoryEntity inv = inventoryRepository
+                        .findByInventoryLocationIdAndVariantId(source.getId(), item.getVariant().getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.STOCK_NOT_AVAILABLE));
+                reserveStock(inv, item, item.getQuantity());
+            });
 
-        if (singleSource.isPresent()) {
-            InventoryLocationEntity source = singleSource.get();
-
-            // ✅ Nếu là pickup (có targetStore)
-            if (targetStore != null) {
-                transferService.createTransferForOrder(source, targetStore, items);
-                log.info("[Transfer] Kho {} đủ toàn bộ hàng, tạo 1 transfer duy nhất → {}", source.getId(), targetStore.getId());
-            } else {
-                // ✅ Nếu là ship
-                items.forEach(orderItem -> reserveFromInventory(source, orderItem));
-                log.info("[Ship] Giao hàng trực tiếp từ kho {}", source.getId());
-            }
-        } else {
-            log.info("[Fulfillment] Không có kho đủ tất cả → chia nhỏ thông minh...");
+            if (targetStore != null)
+                log.info("[Transfer] Kho {} đủ hàng → chuyển 1 lần về {}", source.getId(), targetStore.getId());
+            else
+                log.info("[Ship] Giao trực tiếp từ kho {}", source.getId());
+        }, () -> {
+            log.info("[Fulfillment] Không kho nào đủ tất cả → chia nhỏ...");
             handleFromMultipleSources(items, targetStore);
-        }
+        });
     }
 
-    /**
-     * Tìm kho duy nhất có thể đáp ứng toàn bộ nhu cầu
-     */
+    /** --------------------------
+     *  4️⃣ Tìm kho đủ hàng cho toàn bộ nhu cầu
+     *  -------------------------- */
     private Optional<InventoryLocationEntity> findWarehouseThatCanFulfillAll(List<OrderItemEntity> needs) {
-        // Gộp nhu cầu theo variant
         Map<Long, Integer> totalNeeds = needs.stream()
-                .collect(Collectors.toMap(
-                        i -> i.getVariant().getId(),
-                        OrderItemEntity::getQuantity,
-                        Integer::sum
-                ));
+                .collect(Collectors.toMap(i -> i.getVariant().getId(), OrderItemEntity::getQuantity, Integer::sum));
 
-        List<InventoryEntity> inventories = inventoryRepository.findByVariantIdIn(totalNeeds.keySet());
-        List<InventoryEntity> warehouseInventories = inventories.stream()
-                .filter(i -> InventoryLocationType.WAREHOUSE.getCode().equals(i.getInventoryLocation().getType()))
+        List<InventoryEntity> warehouseInventories = inventoryRepository.findByVariantIdIn(totalNeeds.keySet()).stream()
+                .filter(this::isWarehouse)
                 .toList();
 
         if (warehouseInventories.isEmpty()) return Optional.empty();
 
-        // Gom stock theo kho
         Map<InventoryLocationEntity, Map<Long, Integer>> stockByWarehouse = warehouseInventories.stream()
                 .collect(Collectors.groupingBy(
                         InventoryEntity::getInventoryLocation,
@@ -138,7 +111,6 @@ public class InventoryServiceImpl implements InventoryService {
                         )
                 ));
 
-        // Tìm kho có đủ tất cả
         return stockByWarehouse.entrySet().stream()
                 .filter(entry -> totalNeeds.entrySet().stream()
                         .allMatch(n -> entry.getValue().getOrDefault(n.getKey(), 0) >= n.getValue()))
@@ -146,93 +118,79 @@ public class InventoryServiceImpl implements InventoryService {
                 .map(Map.Entry::getKey);
     }
 
-    /**
-     * Chia nhỏ fulfillment từ nhiều kho (cho pickup hoặc ship)
-     */
+    /** --------------------------
+     *  5️⃣ Chia nhỏ fulfillment từ nhiều kho
+     *  -------------------------- */
     private void handleFromMultipleSources(List<OrderItemEntity> items, InventoryLocationEntity targetStore) {
-        for (OrderItemEntity orderItem : items) {
-            Long variantId = orderItem.getVariant().getId();
-            int required = orderItem.getQuantity();
+        for (OrderItemEntity item : items) {
+            Long variantId = item.getVariant().getId();
+            int remaining = item.getQuantity();
 
-            List<InventoryEntity> allInventories = inventoryRepository.findByVariantId(variantId);
-            List<InventoryEntity> warehouses = allInventories.stream()
-                    .filter(this::isWarehouse)
+            List<InventoryEntity> sources = inventoryRepository.findByVariantId(variantId).stream()
                     .sorted(Comparator.comparingInt(InventoryEntity::getAvailableStock).reversed())
                     .toList();
 
-            List<InventoryEntity> stores = allInventories.stream()
-                    .filter(this::isStore)
-                    .sorted(Comparator.comparingInt(InventoryEntity::getAvailableStock).reversed())
-                    .toList();
+            remaining = fulfillFromSources(item, filterWarehouses(sources), targetStore, remaining);
+            if (remaining > 0)
+                remaining = fulfillFromSources(item, filterStores(sources), targetStore, remaining);
 
-            int remaining = required;
-            remaining = fulfillFromSources(orderItem, warehouses, targetStore, remaining);
-            if (remaining > 0) remaining = fulfillFromSources(orderItem, stores, targetStore, remaining);
-
-            if (remaining > 0) {
-                log.error("[Inventory] Không đủ hàng cho variant {} (thiếu {})", variantId, remaining);
+            if (remaining > 0)
                 throw new AppException(ErrorCode.STOCK_NOT_AVAILABLE);
-            }
         }
     }
 
-    /**
-     * Fulfill hàng từ danh sách kho (warehouse/store)
-     */
+    /** --------------------------
+     *  6️⃣ Fulfill từ nhiều nguồn
+     *  -------------------------- */
     private int fulfillFromSources(OrderItemEntity item, List<InventoryEntity> sources,
                                    InventoryLocationEntity targetStore, int remaining) {
         for (InventoryEntity src : sources) {
-            int available = src.getAvailableStock();
-            if (available <= 0) continue;
+            if (remaining <= 0 || src.getAvailableStock() <= 0) continue;
 
-            int toUse = Math.min(available, remaining);
+            int toUse = Math.min(src.getAvailableStock(), remaining);
             OrderItemEntity sliced = sliceItem(item, toUse);
 
-            if (targetStore != null) {
-                // case pickup → transfer về cửa hàng
-                transferService.createTransferForOrder(src.getInventoryLocation(), targetStore, List.of(sliced));
-                log.info("[Transfer] {} pcs variant {} từ {} → {}",
-                        toUse, item.getVariant().getId(),
-                        src.getInventoryLocation().getId(),
-                        targetStore.getId());
-            } else {
-                // case ship → giữ serial và reserve stock
+            if (targetStore != null) { // pickup → transfer
+                reserveStock(src, sliced, toUse);
+                log.info("[Transfer] {} pcs variant {} từ {} → {}", toUse, item.getVariant().getId(),
+                        src.getInventoryLocation().getId(), targetStore.getId());
+            } else { // ship
                 reserveFromInventory(src.getInventoryLocation(), sliced);
-                log.info("[Ship] Reserve {} pcs variant {} từ {}",
-                        toUse, item.getVariant().getId(), src.getInventoryLocation().getId());
+                log.info("[Ship] Reserve {} pcs variant {} từ {}", toUse, item.getVariant().getId(),
+                        src.getInventoryLocation().getId());
             }
 
             remaining -= toUse;
-            if (remaining <= 0) break;
         }
         return remaining;
     }
 
-    /**
-     * Đặt giữ hàng (reserved) và giữ serial
-     */
-    private void reserveFromInventory(InventoryLocationEntity location, OrderItemEntity orderItem) {
-        InventoryEntity inv = inventoryRepository
-                .findByInventoryLocationIdAndVariantId(location.getId(), orderItem.getVariant().getId())
-                .orElseThrow(() -> new AppException(ErrorCode.STOCK_NOT_AVAILABLE));
-
-        if (inv.getAvailableStock() < orderItem.getQuantity()) {
-            throw new AppException(ErrorCode.STOCK_NOT_AVAILABLE);
-        }
-
-        inv.addReservedStock(orderItem.getQuantity());
-        serialService.reserveSerial(orderItem, location.getId());
+    /** --------------------------
+     *  7️⃣ Helper Methods
+     *  -------------------------- */
+    private void reserveStock(InventoryEntity inv, OrderItemEntity item, int qty) {
+        inv.addReservedStock(qty);
+        serialService.reserveSerial(sliceItem(item, qty), inv.getInventoryLocation());
     }
 
-    /**
-     * Tạo bản sao order item với số lượng cắt
-     */
+    private void reserveFromInventory(InventoryLocationEntity location, OrderItemEntity item) {
+        InventoryEntity inv = inventoryRepository
+                .findByInventoryLocationIdAndVariantId(location.getId(), item.getVariant().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.STOCK_NOT_AVAILABLE));
+
+        if (inv.getAvailableStock() < item.getQuantity())
+            throw new AppException(ErrorCode.STOCK_NOT_AVAILABLE);
+
+        reserveStock(inv, item, item.getQuantity());
+    }
+
     private OrderItemEntity sliceItem(OrderItemEntity src, int qty) {
-        OrderItemEntity tmp = new OrderItemEntity();
-        tmp.setId(src.getId());
-        tmp.setVariant(src.getVariant());
-        tmp.setQuantity(qty);
-        return tmp;
+        OrderItemEntity copy = new OrderItemEntity();
+        copy.setOrder(src.getOrder());
+        copy.setId(src.getId());
+        copy.setVariant(src.getVariant());
+        copy.setQuantity(qty);
+        return copy;
     }
 
     private boolean isWarehouse(InventoryEntity i) {
@@ -241,5 +199,13 @@ public class InventoryServiceImpl implements InventoryService {
 
     private boolean isStore(InventoryEntity i) {
         return InventoryLocationType.STORE.getCode().equals(i.getInventoryLocation().getType());
+    }
+
+    private List<InventoryEntity> filterWarehouses(List<InventoryEntity> list) {
+        return list.stream().filter(this::isWarehouse).toList();
+    }
+
+    private List<InventoryEntity> filterStores(List<InventoryEntity> list) {
+        return list.stream().filter(this::isStore).toList();
     }
 }

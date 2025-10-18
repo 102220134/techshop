@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -37,6 +38,9 @@ public class UserEntity implements UserDetails {
     @Column(unique = true, length = 20)
     private String phone;
 
+    private String gender;
+    private LocalDate birth;
+
     private String avatar;
     private Boolean isActive = true;
     private Boolean isGuest = false;
@@ -67,6 +71,21 @@ public class UserEntity implements UserDetails {
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<ReviewEntity> reviews;
+
+    @PrePersist
+    public void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

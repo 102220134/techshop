@@ -36,6 +36,9 @@ public class InventoryEntity {
         this.reservedStock = reservedStock + quantity;
     }
 
+    public void unReservedStock(int quantity){
+        this.reservedStock = reservedStock - quantity;
+    }
     public Integer getAvailableStock(){
         return stock-reservedStock;
     }

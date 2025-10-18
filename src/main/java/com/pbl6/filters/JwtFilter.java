@@ -1,5 +1,7 @@
 package com.pbl6.filters;
 
+import com.pbl6.exceptions.AppException;
+import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.services.UserService;
 import com.pbl6.utils.JwtUtil;
 import jakarta.servlet.FilterChain;
@@ -12,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -24,7 +27,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
-@Profile("!dev")
+//@Profile("!dev")
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
@@ -104,21 +107,27 @@ public class JwtFilter extends OncePerRequestFilter {
         }
 
         if (phone != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            var userDetails = userService.loadUserByPhone(phone);
+            try {
+                var userDetails = userService.loadUserByPhone(phone);
 
-            if (!jwtUtil.isTokenExpired(jwtToken)) {
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities() // roles
-                        );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                if (!jwtUtil.isTokenExpired(jwtToken)) {
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities() // roles
+                            );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-            }else {
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }else {
+                    authenticationEntryPoint.commence(request, response,
+                            new AuthenticationException("JWT token is expired") {});
+                    return;
+                }
+            }catch (UsernameNotFoundException ex){
                 authenticationEntryPoint.commence(request, response,
-                        new AuthenticationException("JWT token is expired") {});
+                        new AuthenticationException("Phone not found") {});
                 return;
             }
         }

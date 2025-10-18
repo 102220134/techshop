@@ -21,13 +21,7 @@ public class OrderMapper {
                 .receiveMethod(req.getReceiveMethod())
                 .paymentMethod(req.getPaymentMethod())
                 .discountAmount(BigDecimal.ZERO)
-                .status(
-                        switch (req.getPaymentMethod()) {
-                            case COD -> OrderStatus.PENDING;
-                            case BANK -> OrderStatus.AWAITING_PAYMENT;
-                            case VNPAY -> OrderStatus.PENDING;
-                        }
-                )
+                .status(OrderStatus.PENDING)
                 .snapshotName(req.getFullName())
                 .snapshotPhone(req.getPhone())
                 .snapshotLine(req.getLine())

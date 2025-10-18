@@ -34,8 +34,8 @@ public class ProductSerialEntity {
     private ProductSerialStatus status ; // 'in_stock','sold','returned','defective'
 
     @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="order_item_id")
-    private OrderItemEntity orderItem;
+    @JoinColumn(name="reservations_id")
+    private ReservationEntity reservation;
 
     @ManyToMany(mappedBy = "productSerials", fetch = FetchType.LAZY)
     private List<InventoryTransferItemEntity> transferItems;

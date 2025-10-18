@@ -1,5 +1,7 @@
 package com.pbl6.entities;
 
+import com.pbl6.enums.PaymentMethod;
+import com.pbl6.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -29,11 +31,11 @@ public class PaymentEntity {
     @Column(nullable=false, precision=15, scale=2)
     private BigDecimal amount;
 
-    @Column(nullable=false, length=40) // 'cash','bank_transfer',...
-    private String method;
+    @Enumerated(EnumType.STRING)
+    private PaymentMethod method;
 
-    @Column(nullable=false, length=40) // 'pending','completed',...
-    private String status = "pending";
+    @Enumerated(EnumType.STRING)
+    private PaymentStatus status;
 
     @Column(length=60)
     private String provider;

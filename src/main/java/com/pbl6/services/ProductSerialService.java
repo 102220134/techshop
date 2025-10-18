@@ -10,5 +10,5 @@ import java.util.Map;
 
 public interface ProductSerialService {
     //    List<ProductSerialEntity> transferSerial(OrderItemEntity orderItem, Long locationId);
-    List<ProductSerialEntity> reserveSerial(OrderItemEntity orderItem, Long locationId);
+    List<ProductSerialEntity> reserveSerial(OrderItemEntity orderItem, InventoryLocationEntity location);
 }

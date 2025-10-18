@@ -1,13 +1,11 @@
 package com.pbl6.services.impl;
 
-import com.pbl6.entities.InventoryLocationEntity;
-import com.pbl6.entities.InventoryTransferItemEntity;
-import com.pbl6.entities.OrderItemEntity;
-import com.pbl6.entities.ProductSerialEntity;
+import com.pbl6.entities.*;
 import com.pbl6.enums.ProductSerialStatus;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.repositories.ProductSerialRepository;
+import com.pbl6.repositories.ReservationRepository;
 import com.pbl6.services.ProductSerialService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,13 +23,15 @@ import java.util.Map;
 public class ProductSerialServiceImpl implements ProductSerialService {
 
     private final ProductSerialRepository serialRepository;
+    private final ReservationRepository reservationRepository;
 
     @Override
     @Transactional
-    public List<ProductSerialEntity> reserveSerial( OrderItemEntity orderItem, Long locationId) {
+    public List<ProductSerialEntity> reserveSerial( OrderItemEntity orderItem, InventoryLocationEntity location) {
+
         List<ProductSerialEntity> serials = serialRepository.findByVariantIdAndInventoryLocationIdAndStatus(
                 orderItem.getVariant().getId(),
-                locationId,
+                location.getId(),
                 ProductSerialStatus.IN_STOCK
         );
 
@@ -40,14 +40,22 @@ public class ProductSerialServiceImpl implements ProductSerialService {
             throw new AppException(ErrorCode.OVERSELL_PRODUCT_SERIAL);
         }
 
+        ReservationEntity reservation = new ReservationEntity();
+        reservation.setOrder(orderItem.getOrder());
+        reservation.setOrderItem(orderItem);
+        reservation.setQuantity(orderItem.getQuantity());
+        reservation.setLocation(location);
+
+        ReservationEntity finalReservation = reservationRepository.save(reservation);
         List<ProductSerialEntity> updatedSerials = serials.stream()
                 .limit(orderItem.getQuantity())
                 .peek(ps -> {
-                    ps.setOrderItem(orderItem);
+                    ps.setReservation(finalReservation);
                     ps.setStatus(ProductSerialStatus.RESERVED);
                 })
                 .toList();
 
         return serialRepository.saveAll(updatedSerials);
     }
+
 }

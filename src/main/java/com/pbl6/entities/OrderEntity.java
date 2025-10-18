@@ -96,6 +96,9 @@ public class OrderEntity {
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
     private List<OrderItemEntity> orderItems;
 
+    @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
+    private List<ReservationEntity> reservations;
+
     @PrePersist
     public void prePersist() {
         LocalDateTime now = LocalDateTime.now();

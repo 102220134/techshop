@@ -54,10 +54,6 @@ public class OrderItemEntity {
     @Column(precision=15, scale=2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
-    // reverse link for serials
-    @OneToMany(mappedBy = "orderItem", fetch = FetchType.LAZY)
-    private List<ProductSerialEntity> productSerials;
-
     // reviews unique by order_item_id (see ReviewEntity)
     @OneToMany(mappedBy = "orderItem", fetch = FetchType.LAZY)
     private List<ReviewEntity> reviews;

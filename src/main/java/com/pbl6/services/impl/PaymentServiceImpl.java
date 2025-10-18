@@ -56,7 +56,7 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal actualAmount = payload.getTransferAmount();
 
         // 3️⃣ Kiểm tra trạng thái hiện tại
-        if (PaymentStatus.PAID.getCode().equalsIgnoreCase(payment.getStatus())) {
+        if (PaymentStatus.PAID.equals(payment.getStatus())) {
             log.info("Payment {} already completed, ignoring duplicate webhook", payment.getId());
             return "already completed";
         }
@@ -69,7 +69,7 @@ public class PaymentServiceImpl implements PaymentService {
         int compare = actualAmount.compareTo(expectedAmount);
         switch (compare) {
             case 0 -> { // ✅ Đúng số tiền
-                payment.setStatus(PaymentStatus.PAID.getCode());
+                payment.setStatus(PaymentStatus.PAID);
                 paymentRepo.save(payment);
                 orderService.markOrderStatus(orderId, OrderStatus.PAID);
                 template.convertAndSend("/topic/"+orderId, payment.getStatus());
@@ -77,14 +77,14 @@ public class PaymentServiceImpl implements PaymentService {
                 return "payment success";
             }
             case -1 -> { // ⚠️ Thiếu tiền
-                payment.setStatus("underpaid");
+//                payment.setStatus("underpaid");
                 paymentRepo.save(payment);
                 log.warn("Underpaid: expected={} actual={}", expectedAmount, actualAmount);
                 template.convertAndSend("/topic/"+orderId, payment.getStatus());
                 return "underpaid";
             }
             case 1 -> { // ⚠️ Dư tiền
-                payment.setStatus("overpaid");
+//                payment.setStatus("overpaid");
                 paymentRepo.save(payment);
                 log.warn("Overpaid: expected={} actual={}", expectedAmount, actualAmount);
                 template.convertAndSend("/topic/"+orderId, payment.getStatus());

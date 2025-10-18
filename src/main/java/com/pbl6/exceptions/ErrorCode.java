@@ -33,6 +33,8 @@ public enum ErrorCode {
     INVALID_STATUS(3009, "Invalid status value", HttpStatus.BAD_REQUEST),
     INVALID_PARAM(3010, "Invalid param", HttpStatus.BAD_REQUEST),
     INVALID_QUANTITY(3011,"Invalid quantity", HttpStatus.BAD_REQUEST),
+    CONFIRM_PASSWORD_NOT_MATCH(3012, "Invalid confirm password", HttpStatus.BAD_REQUEST),
+    CANNOT_DELETE_LAST_ADDRESS(3013,"Cannot delete last address",HttpStatus.BAD_REQUEST),
 
     // ===== Lỗi sản phẩm & kho (Product & Inventory) =====
     PRODUCT_NOT_FOUND(4001, "Product not found", HttpStatus.NOT_FOUND),

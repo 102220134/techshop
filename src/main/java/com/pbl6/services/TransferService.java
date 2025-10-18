@@ -9,5 +9,5 @@ import java.util.List;
 import java.util.Map;
 
 public interface TransferService {
-    void createTransferForOrder(InventoryLocationEntity source, InventoryLocationEntity storeLocation, List<OrderItemEntity> remainingNeeds);
+//    void createTransferForOrder(InventoryLocationEntity source, InventoryLocationEntity storeLocation, List<OrderItemEntity> remainingNeeds);
 }

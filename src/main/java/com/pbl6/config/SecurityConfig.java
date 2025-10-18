@@ -25,7 +25,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
-@Profile("!dev")
+//@Profile("!dev")
 public class SecurityConfig {
 
 
