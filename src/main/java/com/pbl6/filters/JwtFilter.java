@@ -27,7 +27,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
-//@Profile("!dev")
+@Profile("!dev")
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;

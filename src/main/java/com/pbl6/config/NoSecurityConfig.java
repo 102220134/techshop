@@ -16,7 +16,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@Profile("!dev")
+@Profile("dev")
 public class NoSecurityConfig {
 
     @Bean
