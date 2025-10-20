@@ -1,4 +1,4 @@
-package com.pbl6.dtos.request.checkout;
+package com.pbl6.dtos.request.order;
 
 import com.pbl6.enums.PaymentMethod;
 import com.pbl6.enums.ReceiveMethod;
@@ -35,6 +35,8 @@ public class OrderRequest {
     BigDecimal totalAmount;
     BigDecimal shippingFee;
     BigDecimal discountAmount;
+
+    Boolean isOnline;
 
     List<OrderItemRequest> items;
 }

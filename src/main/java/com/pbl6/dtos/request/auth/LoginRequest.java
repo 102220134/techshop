@@ -10,7 +10,7 @@ import lombok.Getter;
 public class LoginRequest {
 
     @Pattern(
-            regexp = "^$|^(0[1-9][0-9]{8})$",
+            regexp = "^0[35789][0-9]{8}$",
             message = "INVALID_PHONE_FORMAT"
     )
 

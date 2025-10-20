@@ -22,4 +22,15 @@ public class AuthenticationUtil {
             throw new AppException(ErrorCode.TOKEN_INVALID);
         }
     }
+    public UserEntity getCurrentUser() {
+        try{
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            UserEntity user = (UserEntity) authentication.getPrincipal();
+            return user;
+        }
+        catch (Exception e){
+            log.warn("Không thể lấy user từ SecurityContextHolder");
+            throw new AppException(ErrorCode.TOKEN_INVALID);
+        }
+    }
 }

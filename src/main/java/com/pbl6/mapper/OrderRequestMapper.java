@@ -2,8 +2,8 @@ package com.pbl6.mapper;
 
 import com.pbl6.dtos.request.checkout.CheckoutPickupRequest;
 import com.pbl6.dtos.request.checkout.CheckoutShipRequest;
-import com.pbl6.dtos.request.checkout.OrderItemRequest;
-import com.pbl6.dtos.request.checkout.OrderRequest;
+import com.pbl6.dtos.request.order.OrderItemRequest;
+import com.pbl6.dtos.request.order.OrderRequest;
 import com.pbl6.enums.ReceiveMethod;
 import org.springframework.stereotype.Component;
 

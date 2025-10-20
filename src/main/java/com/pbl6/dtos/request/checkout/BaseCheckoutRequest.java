@@ -1,5 +1,6 @@
 package com.pbl6.dtos.request.checkout;
 
+import com.pbl6.dtos.request.order.OrderItemRequest;
 import com.pbl6.enums.PaymentMethod;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -20,7 +21,9 @@ public abstract class BaseCheckoutRequest {
     private String fullName;
 
     @NotBlank(message = "REQUIRED_FIELD_MISSING")
-    @Pattern(regexp = "^(0|\\+84)[0-9]{9,10}$", message = "INVALID_PHONE_FORMAT")
+    @Pattern(
+            regexp = "^0[35789][0-9]{8}$",
+            message = "INVALID_PHONE_FORMAT")
     private String phone;
 
     @Email(message = "INVALID_EMAIL_FORMAT")

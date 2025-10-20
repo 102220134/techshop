@@ -58,6 +58,8 @@ public class OrderEntity {
     @JoinColumn(name = "store_id")
     private StoreEntity store;
 
+    private boolean isOnline;
+
     // shipping address snapshot
     @Column(nullable=false, length=120)
     private String snapshotName;

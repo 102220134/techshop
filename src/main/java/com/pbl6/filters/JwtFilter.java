@@ -27,7 +27,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
-@Profile("!dev")
+//@Profile("!dev")
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
@@ -51,15 +51,6 @@ public class JwtFilter extends OncePerRequestFilter {
             "/api/checkout/**"
     );
 
-//    private boolean isByPass(HttpServletRequest req) {
-//        String ctx = req.getContextPath();
-//        String uri = req.getRequestURI();
-//        String path = uri.substring(ctx.length());
-//
-//        return "OPTIONS".equalsIgnoreCase(req.getMethod())
-//                || path.startsWith("/uploads/")
-//                || bypassUrls.stream().anyMatch(p -> pathMatcher.match(p, path));
-//    }
 
     private boolean matchAny(HttpServletRequest req, List<String> patterns) {
         String path = req.getRequestURI().substring(req.getContextPath().length());
@@ -69,10 +60,6 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,FilterChain filterChain) throws ServletException, IOException {
 
-//        if (isByPass(request)) {
-//            filterChain.doFilter(request, response);
-//            return;
-//        }
         if ("OPTIONS".equalsIgnoreCase(request.getMethod()) ||
             matchAny(request, bypassUrls)) {
             filterChain.doFilter(request, response);
@@ -115,7 +102,7 @@ public class JwtFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
                                     null,
-                                    userDetails.getAuthorities() // roles
+                                    userDetails.getAuthorities()// roles
                             );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 

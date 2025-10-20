@@ -34,7 +34,7 @@ public class ProductMapper {
                 .slug(projection.getSlug())
                 .thumbnail(projection.getThumbnail())
                 .price(projection.getPrice())
-                .special_price(finalPrice != null ? finalPrice : projection.getPrice())
+                .special_price(finalPrice)
                 .promotions(promotions.isEmpty() ? null : promotions.stream().map(promotionMapper::toDto).toList())
                 .stock(projection.getStock() != null ? projection.getStock() : 0)
                 .reserved_stock(projection.getReservedStock() != null ? projection.getReservedStock() : 0)

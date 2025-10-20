@@ -33,6 +33,7 @@ public class CategoryEntity implements Activatable {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private int level;
 
     @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
     private List<CategoryEntity> children;

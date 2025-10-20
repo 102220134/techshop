@@ -3,7 +3,9 @@ package com.pbl6.entities;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "roles")
@@ -16,9 +18,15 @@ public class RoleEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
     private String name;
 
-    @OneToMany(mappedBy = "role", fetch = FetchType.LAZY)
-    private List<UserEntity> users;
+    private String displayName;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "role_permissions",
+            joinColumns = @JoinColumn(name = "role_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private Set<PermissionEntity> permissions = new HashSet<>();
 }

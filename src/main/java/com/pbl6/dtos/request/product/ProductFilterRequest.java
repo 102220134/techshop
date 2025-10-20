@@ -1,5 +1,6 @@
 package com.pbl6.dtos.request.product;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -17,10 +18,10 @@ import java.util.Map;
 @AllArgsConstructor
 public class ProductFilterRequest {
 
+        @Schema(allowableValues = {"id", "price", "create_at", "rating"})
         private String order = "id";
-
+        @Schema(allowableValues = {"asc", "desc"})
         private String dir = "asc";
-
         private Integer page = 1;
 
         private Integer size = 20;

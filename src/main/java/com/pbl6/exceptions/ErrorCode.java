@@ -12,6 +12,7 @@ public enum ErrorCode {
     INVALID_USER_ID(1003, "Invalid user ID", HttpStatus.BAD_REQUEST),
     EMAIL_ALREADY_USED(1004, "Email already in use", HttpStatus.CONFLICT),
     PHONE_ALREADY_USED(1005, "Phone number already in use", HttpStatus.CONFLICT),
+    PHONE_LOCKED(1006,"phone is locked",HttpStatus.CONFLICT),
 
     // ===== Lỗi xác thực & phân quyền (Auth & Security) =====
     UNAUTHORIZED(2001, "Unauthorized", HttpStatus.UNAUTHORIZED),

@@ -1,5 +1,6 @@
 package com.pbl6.mapper;
 
+import com.pbl6.dtos.response.BreadcrumbDto;
 import com.pbl6.dtos.response.CategoryDto;
 import com.pbl6.entities.CategoryEntity;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ public class CategoryMapper {
                 getFullSlug(cat),
                 cat.getCategoryType(),
                 cat.getLogo(),
+                null,
                 new ArrayList<>()
         );
     }
@@ -24,5 +26,10 @@ public class CategoryMapper {
             return cat.getSlug();
         }
         return getFullSlug(cat.getParent()) + "/" + cat.getSlug();
+    }
+
+    public BreadcrumbDto.BreadcrumbItem toBreadcrumbItem(CategoryEntity entity) {
+        if (entity == null) return null;
+        return new BreadcrumbDto.BreadcrumbItem(entity.getName(), getFullSlug(entity));
     }
 }

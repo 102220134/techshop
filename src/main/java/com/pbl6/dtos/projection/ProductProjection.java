@@ -21,6 +21,7 @@ public interface ProductProjection {
     Double getAverage();
     LocalDateTime getCreatedAt();
     LocalDateTime getUpdatedAt();
+    BigDecimal getDiscountedPrice();
 
     // Computed properties
     default Integer getAvailableStock() {

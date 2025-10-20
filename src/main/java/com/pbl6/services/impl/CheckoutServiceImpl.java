@@ -3,7 +3,7 @@ package com.pbl6.services.impl;
 
 import com.pbl6.dtos.request.checkout.CheckoutPickupRequest;
 import com.pbl6.dtos.request.checkout.CheckoutShipRequest;
-import com.pbl6.dtos.request.checkout.OrderRequest;
+import com.pbl6.dtos.request.order.OrderRequest;
 import com.pbl6.dtos.request.checkout.PaymentRequest;
 import com.pbl6.dtos.response.payment.PaymentInitResponse;
 import com.pbl6.entities.OrderEntity;
@@ -49,6 +49,7 @@ public class CheckoutServiceImpl implements CheckoutService {
         orderRequest.setEmail(user.getEmail());
         orderRequest.setFullName(user.getName());
         orderRequest.setPhone(user.getPhone());
+        orderRequest.setIsOnline(true);
         OrderEntity order = orderService.createOrder(orderRequest
         );
 

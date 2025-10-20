@@ -1,6 +1,5 @@
 package com.pbl6.config;
 
-import com.pbl6.enums.RoleEnum;
 import com.pbl6.exceptions.CustomAccessDeniedHandler;
 import com.pbl6.exceptions.JwtAuthenticationEntryPoint;
 import com.pbl6.filters.JwtFilter;
@@ -14,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -24,8 +24,8 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
-@Profile("!dev")
 public class SecurityConfig {
 
 
@@ -54,9 +54,6 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST,"api/checkout/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/cart/add").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
-                        .requestMatchers(HttpMethod.GET, "/api/order").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
-                        .requestMatchers(HttpMethod.POST, "/test1").hasRole(RoleEnum.CUSTOMER.getRoleName().toUpperCase())
                         .anyRequest().authenticated()
                 );
         return http.build();

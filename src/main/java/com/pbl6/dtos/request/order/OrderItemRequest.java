@@ -1,4 +1,4 @@
-package com.pbl6.dtos.request.checkout;
+package com.pbl6.dtos.request.order;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;

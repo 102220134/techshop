@@ -1,18 +1,15 @@
 package com.pbl6.services.impl;
 
-import com.pbl6.dtos.request.auth.LoginRequest;
 import com.pbl6.dtos.request.auth.RegisterRequest;
-import com.pbl6.dtos.request.profile.ChangePasswordRequest;
-import com.pbl6.dtos.request.profile.ProfileUpdateRequest;
-import com.pbl6.dtos.request.profile.UserAddressCreateRequest;
-import com.pbl6.dtos.request.profile.UserAddressUpdateRequest;
-import com.pbl6.dtos.response.LoginDto;
+import com.pbl6.dtos.request.user.*;
+import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.user.UserAddressDto;
+import com.pbl6.dtos.user.UserDetailDto;
 import com.pbl6.dtos.user.UserDto;
 import com.pbl6.entities.RoleEntity;
 import com.pbl6.entities.UserAddressEntity;
 import com.pbl6.entities.UserEntity;
-import com.pbl6.enums.RoleEnum;
+import com.pbl6.enums.OrderStatus;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.mapper.UserAddressMapper;
@@ -20,17 +17,31 @@ import com.pbl6.mapper.UserMapper;
 import com.pbl6.repositories.RoleRepository;
 import com.pbl6.repositories.UserAddressRepository;
 import com.pbl6.repositories.UserRepository;
-import com.pbl6.services.RefreshTokenService;
+import com.pbl6.services.AuthService;
 import com.pbl6.services.UserService;
+import com.pbl6.specifications.UserSpecification;
+import com.pbl6.utils.AuthenticationUtil;
 import com.pbl6.utils.JwtUtil;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Tuple;
+import jakarta.persistence.criteria.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -38,191 +49,202 @@ import java.util.Optional;
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final RefreshTokenService refreshTokenService;
+    private final AuthService refreshTokenService;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final JwtUtil jwtUtil;
     private final UserAddressRepository userAddressRepository;
     private final UserAddressMapper userAddressMapper;
+    private final EntityManager em;
+    private final AuthenticationUtil authenticationUtil;
 
     @Override
-    public void createUser(RegisterRequest registerRequest) {
-        log.info("Attempting to create user with phone: {}", registerRequest.getPhone());
+    @Transactional
+    public UserDto createUser(RegisterRequest registerRequest) {
         Optional<UserEntity> existingUserOpt = userRepository.findByPhone(registerRequest.getPhone());
 
         if (existingUserOpt.isEmpty()) {
-            log.debug("No existing user found for phone: {}. Creating new user.", registerRequest.getPhone());
             UserEntity newUser = userMapper.toUserEntity(registerRequest);
             newUser.setPassword(passwordEncoder.encode(newUser.getPassword()));
-            RoleEntity roleEntity = roleRepository.findByName(RoleEnum.CUSTOMER.getRoleName())
+            RoleEntity roleEntity = roleRepository.findByName("CUSTOMER")
                     .orElseThrow(() -> {
-                        log.error("Role {} not found during user creation.", RoleEnum.CUSTOMER.getRoleName());
+                        log.error("Role {} not found during user creation.", "CUSTOMER");
                         return new AppException(ErrorCode.DATA_NOT_FOUND);
                     });
-            newUser.setRole(roleEntity);
+            newUser.setRoles(Set.of(roleEntity));
             newUser.setIsGuest(false);
             newUser.setIsActive(true);
-            userRepository.save(newUser);
-            log.info("New user created successfully with phone: {}", registerRequest.getPhone());
-            return;
+            newUser = userRepository.save(newUser);
+            return userMapper.toUserDto(newUser);
         }
 
         UserEntity existingUser = existingUserOpt.get();
-        log.debug("Existing user found for phone: {}. Checking if it's a guest user.", registerRequest.getPhone());
 
         if (!existingUser.getIsGuest()) {
             log.warn("User with phone: {} already exists and is not a guest. Throwing USER_EXISTED.", registerRequest.getPhone());
             throw new AppException(ErrorCode.USER_EXISTED);
         }
 
-        log.info("Converting guest user with phone: {} to a regular user.", registerRequest.getPhone());
         existingUser.setName(registerRequest.getName());
         existingUser.setEmail(registerRequest.getEmail());
         existingUser.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
         existingUser.setIsGuest(false);
         existingUser.setIsActive(true);
-        userRepository.save(existingUser);
-        log.info("Guest user with phone: {} successfully converted to regular user.", registerRequest.getPhone());
-    }
-
-    @Override
-    public LoginDto login(LoginRequest loginRequest) {
-        log.info("Attempting login for phone: {}", loginRequest.getPhone());
-        UserEntity userEntity = userRepository.findByPhone(loginRequest.getPhone())
-                .orElseThrow(() -> {
-                    log.warn("Login failed: User not found for phone: {}", loginRequest.getPhone());
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
-                });
-
-        if (Boolean.TRUE.equals(userEntity.getIsGuest())) {
-            log.warn("Login failed for phone: {}. User is a guest account.", loginRequest.getPhone());
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
-        }
-
-        if (!Boolean.TRUE.equals(userEntity.getIsActive())) {
-            log.warn("Login failed for phone: {}. User account is inactive.", loginRequest.getPhone());
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
-        }
-
-        if (!passwordEncoder.matches(loginRequest.getPassword(), userEntity.getPassword())) {
-            log.warn("Login failed for phone: {}. Invalid password.", loginRequest.getPhone());
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
-        }
-
-        LoginDto loginResponse = new LoginDto();
-        loginResponse.setAccessToken(jwtUtil.generateToken(userEntity.getPhone()));
-        String refreshToken = refreshTokenService.addRefreshToken(userEntity);
-        loginResponse.setRefreshToken(refreshToken);
-        log.info("User {} logged in successfully. Access token generated.", userEntity.getPhone());
-
-        return loginResponse;
+        existingUser = userRepository.save(existingUser);
+        return userMapper.toUserDto(existingUser);
     }
 
     @Override
     public UserEntity loadUserByPhone(String phone) throws UsernameNotFoundException {
-        log.debug("Loading user by phone: {}", phone);
-        return userRepository.findByPhoneAndIsActiveTrue(phone).orElseThrow(() -> {
-            log.error("User not found with phone: {}", phone);
-            return new UsernameNotFoundException("User not found with phone: " + phone);
-        });
+        UserEntity user = userRepository.findByPhoneAndIsActive(phone, true).orElseThrow(
+                () -> new UsernameNotFoundException("phone not found")
+        );
+        return user;
     }
 
     @Override
     public UserEntity createOrGetGuest(String email, String phone, String name) {
-        log.info("Attempting to create or get guest user for phone: {}", phone);
-        return userRepository.findByPhone(phone)
-                .orElseGet(() -> {
-                    log.debug("Guest user not found for phone: {}. Creating new guest user.", phone);
-                    RoleEntity roleEntity = roleRepository.findByName(RoleEnum.CUSTOMER.getRoleName())
-                            .orElseThrow(()-> {
-                                log.error("Role {} not found during guest user creation.", RoleEnum.CUSTOMER.getRoleName());
-                                return new AppException(ErrorCode.DATA_NOT_FOUND);
-                            });
-                    UserEntity guest = UserEntity.builder()
-                            .name(name)
-                            .email(email)
-                            .phone(phone)
-                            .role(roleEntity)
-                            .isGuest(true)
-                            .isActive(false)
-                            .build();
-                    UserEntity savedGuest = userRepository.save(guest);
-                    log.info("New guest user created with phone: {}", phone);
-                    return savedGuest;
+        Optional<UserEntity> userOptional = userRepository.findByPhone(phone);
+
+        if (userOptional.isPresent()) {
+            UserEntity existingUser = userOptional.get();
+            if (Boolean.FALSE.equals(existingUser.getIsActive())) {
+                log.warn("Attempt to create guest with inactive phone: {}", phone);
+                throw new AppException(ErrorCode.PHONE_LOCKED);
+            }
+            // If user is present and active, return it
+            log.info("Existing active user found for phone: {}", phone);
+            return existingUser;
+        }
+
+        // No user found, or user is inactive (handled above), so create a new guest
+        RoleEntity roleEntity = roleRepository.findByName("CUSTOMER")
+                .orElseThrow(() -> {
+                    log.error("Role {} not found during guest user creation.", "CUSTOMER");
+                    return new AppException(ErrorCode.DATA_NOT_FOUND);
                 });
+
+        UserEntity guest = UserEntity.builder()
+                .name(name)
+                .email(email)
+                .phone(phone)
+                .roles(Set.of(roleEntity))
+                .isGuest(true)
+                .isActive(true)
+                .build();
+
+        log.info("Creating new guest account for phone: {}", phone);
+        return userRepository.save(guest);
     }
 
+
     @Override
-    public UserDto getUserInfo(Long userId) {
-        log.info("Fetching user info for userId: {}", userId);
-        UserEntity user = userRepository.findById(userId).orElseThrow(
-                ()-> {
+    public UserDetailDto getUserInfo(Long userId) {
+
+        UserEntity targetUser = userRepository.findById(userId).orElseThrow(
+                () -> {
                     log.warn("User not found for userId: {}", userId);
                     return new AppException(ErrorCode.USER_NOT_FOUND);
                 }
         );
-        log.debug("User found for userId: {}. Returning DTO.", userId);
-        return userMapper.toDto(user);
+
+        UserEntity currentUser = authenticationUtil.getCurrentUser();
+
+        if (currentUser.hasAuthority("USER_READ_ALL")) {
+            return userMapper.toUserDetailDto(targetUser);
+        }
+
+        boolean targetIsCustomer = targetUser.getRoles().stream()
+                .anyMatch(role -> role.getName().equals("CUSTOMER"));
+        if (currentUser.hasAuthority("USER_READ_CUSTOMER") && targetIsCustomer) {
+            return userMapper.toUserDetailDto(targetUser);
+        }
+        throw new AppException(ErrorCode.FORBIDDEN);
     }
 
     @Override
-    public UserDto updateProfile(Long userId, ProfileUpdateRequest request) {
-        log.info("Updating profile for userId: {}", userId);
+    public UserDetailDto updateUserInfo(Long userId, UserUpdateInfoRequest request) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
-                    log.warn("Profile update failed: User not found for userId: {}", userId);
+                    log.error("Profile update failed: User not found for userId: {}", userId);
                     return new AppException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        // Update fields from request if they are provided
         if (request.getName() != null) {
             user.setName(request.getName());
-            log.debug("Updating name for userId {}: {}", userId, request.getName());
         }
         if (request.getGender() != null) {
             user.setGender(request.getGender());
-            log.debug("Updating gender for userId {}: {}", userId, request.getGender());
         }
-        if (request.getBirth()!= null) {
+        if (request.getBirth() != null) {
             user.setBirth(request.getBirth());
-            log.debug("Updating birth date for userId {}: {}", userId, request.getBirth());
         }
 
         UserEntity updatedUser = userRepository.save(user);
-        log.info("Profile updated successfully for userId: {}", userId);
-        return userMapper.toDto(updatedUser);
+        return userMapper.toUserDetailDto(updatedUser);
+    }
+
+    @Override
+    public UserDetailDto updateUserRole(Long userId, UserUpdateRoleRequest request) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.error("Profile update failed: User not found for userId: {}", userId);
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
+
+        List<String> newRoles = request.getRoles();
+        if (newRoles == null || newRoles.isEmpty()) {
+            throw new AppException(ErrorCode.DATA_NOT_FOUND);
+        }
+        Set<RoleEntity> roleEntities = new HashSet<>();
+        for (String roleEnum : newRoles) {
+            RoleEntity role = roleRepository.findByName(roleEnum)
+                    .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
+            roleEntities.add(role);
+        }
+
+        user.setRoles(roleEntities);
+        return userMapper.toUserDetailDto(userRepository.save(user));
+    }
+
+    @Override
+    public UserDetailDto updateUserStatus(Long userId, UserUpdateStatusRequest request) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> {
+                    log.error("Status update failed: User not found for userId: {}", userId);
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
+
+        user.setIsActive(request.getIsActive());
+        UserEntity updatedUser = userRepository.save(user);
+
+        return userMapper.toUserDetailDto(updatedUser);
     }
 
     @Override
     public void changePassword(Long userId, ChangePasswordRequest request) {
-        log.info("Attempting to change password for userId: {}", userId);
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("Password change failed: User not found for userId: {}", userId);
                     return new AppException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        // 1. Verify current password
-        if (!passwordEncoder.matches(request.getNewPassword(), user.getPassword())) { // This should be currentPassword, not newPassword
+        if (!passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
             log.warn("Password change failed for userId {}: Current password verification failed.", userId);
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
+            throw new AppException(ErrorCode.INVALID_CREDENTIALS, " Current password verification failed.");
         }
 
-        // 2. Check if new password and confirm password match
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             log.warn("Password change failed for userId {}: New password and confirm password do not match.", userId);
-            throw new AppException(ErrorCode.CONFIRM_PASSWORD_NOT_MATCH);
+            throw new AppException(ErrorCode.INVALID_CREDENTIALS, "New password and confirm password do not match");
         }
 
-        // 3. Encode and set the new password
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
-        log.info("Password changed successfully for userId: {}", userId);
     }
 
     @Override
     public UserAddressDto createAddress(Long userId, UserAddressCreateRequest request) {
-        log.info("Attempting to create address for userId: {}", userId);
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("Address creation failed: User not found for userId: {}", userId);
@@ -235,144 +257,93 @@ public class UserServiceImpl implements UserService {
         newAddress.setWard(request.getWard());
         newAddress.setDistrict(request.getDistrict());
         newAddress.setProvince(request.getProvince());
-        log.debug("New address details for userId {}: Line={}, Ward={}, District={}, Province={}",
-                userId, request.getLine(), request.getWard(), request.getDistrict(), request.getProvince());
 
-        // Determine if the new address should be default
         boolean requestWantsDefault = Boolean.TRUE.equals(request.getIsDefault());
         long existingDefaultAddressesCount = userAddressRepository.countByUserAndIsDefaultTrue(user);
         long totalExistingAddressesCount = userAddressRepository.countByUser(user);
-        log.debug("Address creation for userId {}: requestWantsDefault={}, existingDefaultAddressesCount={}, totalExistingAddressesCount={}",
-                userId, requestWantsDefault, existingDefaultAddressesCount, totalExistingAddressesCount);
 
 
         if (totalExistingAddressesCount == 0) {
-            // If this is the first address for the user, it must be default.
             newAddress.setIsDefault(true);
-            log.debug("Address for userId {} is the first one, setting as default.", userId);
         } else if (requestWantsDefault) {
-            // If the request explicitly asks for this to be default, unset all other default addresses.
-            log.debug("Request wants new address for userId {} to be default. Unsetting other defaults.", userId);
             List<UserAddressEntity> currentDefaultAddresses = userAddressRepository.findByUserAndIsDefaultTrue(user);
             for (UserAddressEntity defaultAddr : currentDefaultAddresses) {
                 defaultAddr.setIsDefault(false);
-                userAddressRepository.save(defaultAddr); // Save each updated default address
-                log.debug("Unset default for addressId: {}", defaultAddr.getId());
+                userAddressRepository.save(defaultAddr);
             }
-            newAddress.setIsDefault(true); // Set the new address as default
-            log.debug("New address for userId {} set as default.", userId);
+            newAddress.setIsDefault(true);
         } else {
-            // If the request does not explicitly ask for default (false or null)
-            // And there are no other default addresses, this one must become default to maintain the rule.
             if (existingDefaultAddressesCount == 0) {
                 newAddress.setIsDefault(true);
-                log.debug("No other default addresses for userId {}, setting new address as default to maintain rule.", userId);
             } else {
-                newAddress.setIsDefault(false); // Otherwise, follow the request's non-default setting
-                log.debug("New address for userId {} not set as default, following request.", userId);
+                newAddress.setIsDefault(false);
             }
         }
 
-        UserAddressEntity savedAddress = userAddressRepository.save(newAddress); // This should be userAddressRepository.save(newAddress);
-        log.info("Address created successfully for userId: {} with addressId: {}", userId, savedAddress.getId());
-        return userAddressMapper.toDto(savedAddress); // Assuming userAddressMapper exists and is injected
+        UserAddressEntity savedAddress = userAddressRepository.save(newAddress);
+        return userAddressMapper.toDto(savedAddress);
     }
 
     @Override
     public UserAddressDto updateAddress(Long userId, UserAddressUpdateRequest request) {
-        log.info("Attempting to update addressId: {} for userId: {}", request.getId(), userId);
-        // 1. Find the user
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("Address update failed: User not found for userId: {}", userId);
                     return new AppException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        // 2. Find the address to update
         UserAddressEntity addressToUpdate = userAddressRepository.findById(request.getId())
                 .orElseThrow(() -> {
                     log.warn("Address update failed: Address not found for addressId: {}", request.getId());
                     return new AppException(ErrorCode.DATA_NOT_FOUND);
                 });
 
-        // 3. Ensure the address belongs to the user
         if (!addressToUpdate.getUser().getId().equals(userId)) {
             log.warn("Address update failed: AddressId {} does not belong to userId {}", request.getId(), userId);
-            throw new AppException(ErrorCode.UNAUTHORIZED); // Or a more specific error like ADDRESS_NOT_BELONG_TO_USER
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        // 4. Update address fields from the request
         addressToUpdate.setLine(request.getLine());
         addressToUpdate.setWard(request.getWard());
         addressToUpdate.setDistrict(request.getDistrict());
         addressToUpdate.setProvince(request.getProvince());
-        log.debug("Updating addressId {} for userId {}: Line={}, Ward={}, District={}, Province={}",
-                request.getId(), userId, request.getLine(), request.getWard(), request.getDistrict(), request.getProvince());
 
-        // 5. Handle isDefault logic
         if (Boolean.TRUE.equals(request.getIsDefault())) {
-            log.debug("Request wants addressId {} for userId {} to be default. Unsetting other defaults.", request.getId(), userId);
-            // If the incoming request explicitly sets this address as default:
-            // Find all other default addresses for this user and unset them.
             List<UserAddressEntity> currentDefaultAddresses = userAddressRepository.findByUserAndIsDefaultTrue(user);
             for (UserAddressEntity defaultAddr : currentDefaultAddresses) {
                 if (!defaultAddr.getId().equals(addressToUpdate.getId())) {
                     defaultAddr.setIsDefault(false);
-                    userAddressRepository.save(defaultAddr); // Save each updated default address
-                    log.debug("Unset default for addressId: {}", defaultAddr.getId());
+                    userAddressRepository.save(defaultAddr);
                 }
             }
-            addressToUpdate.setIsDefault(true); // Set the current address as default
-            log.debug("AddressId {} set as default for userId {}.", request.getId(), userId);
+            addressToUpdate.setIsDefault(true);
         } else {
-            log.debug("Request wants addressId {} for userId {} to be non-default.", request.getId(), userId);
-            // If the incoming request explicitly sets this address as non-default (or doesn't specify, which defaults to false):
-            // Set the current address to non-default.
             addressToUpdate.setIsDefault(false);
 
-            // Business rule: A user must always have at least one default address.
-            // Check if, after setting this address to non-default, there are no other default addresses.
-            // Count default addresses *excluding* the one we are currently updating.
             long otherDefaultAddressesCount = userAddressRepository.countByUserAndIsDefaultTrueAndIdNot(user, addressToUpdate.getId());
-            log.debug("After setting addressId {} to non-default, otherDefaultAddressesCount for userId {} is: {}",
-                    request.getId(), userId, otherDefaultAddressesCount);
 
             if (otherDefaultAddressesCount == 0) {
-                // If there are no other default addresses, we need to make one default.
-                log.debug("No other default addresses found for userId {}. Enforcing business rule.", userId);
-                // First, check if there are any other addresses at all for this user.
                 long totalAddressesCount = userAddressRepository.countByUser(user);
 
                 if (totalAddressesCount == 1) {
-                    // If this is the ONLY address for the user, it MUST remain default.
                     addressToUpdate.setIsDefault(true);
                     log.warn("AddressId {} is the only address for userId {}. It must remain default.", request.getId(), userId);
                 } else {
-                    // There are other addresses, but none are default. Pick one to be the new default.
-                    // Find the first available address that is not the current one and make it default.
                     userAddressRepository.findFirstByUserAndIdNot(user, addressToUpdate.getId())
                             .ifPresent(newDefaultAddress -> {
                                 newDefaultAddress.setIsDefault(true);
                                 userAddressRepository.save(newDefaultAddress);
-                                log.info("Set addressId {} as new default for userId {}.", newDefaultAddress.getId(), userId);
                             });
-                    // If no other address is found (e.g., due to concurrent deletion),
-                    // the system might temporarily have no default. This scenario is handled by `ifPresent`.
                 }
             }
         }
 
-        // 6. Save the updated address
         UserAddressEntity savedAddress = userAddressRepository.save(addressToUpdate);
-        log.info("AddressId {} updated successfully for userId: {}", savedAddress.getId(), userId);
-
-        // 7. Return the DTO representation of the updated address
         return userAddressMapper.toDto(savedAddress);
     }
 
     @Override
     public void deleteAddress(Long userId, Long addressId) {
-        log.info("Attempting to delete addressId: {} for userId: {}", addressId, userId);
         var address = userAddressRepository.findById(addressId)
                 .orElseThrow(() -> {
                     log.warn("Address deletion failed: Address not found for addressId: {}", addressId);
@@ -383,27 +354,140 @@ public class UserServiceImpl implements UserService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        // Business rule: A user must always have at least one default address.
-        // If the address being deleted is the default, or if it's the only address,
-        // we need to ensure another address becomes default or prevent deletion if it's the last one.
         long totalAddressesCount = userAddressRepository.countByUser(address.getUser());
         if (totalAddressesCount == 1) {
             log.warn("Cannot delete addressId {} for userId {}: It is the only address.", addressId, userId);
-            throw new AppException(ErrorCode.CANNOT_DELETE_LAST_ADDRESS); // Custom error for this case
+            throw new AppException(ErrorCode.CANNOT_DELETE_LAST_ADDRESS);
         }
 
         if (Boolean.TRUE.equals(address.getIsDefault())) {
-            log.debug("AddressId {} being deleted is the default for userId {}. Finding a new default.", addressId, userId);
-            // Find a new default address
             userAddressRepository.findFirstByUserAndIdNot(address.getUser(), addressId)
                     .ifPresent(newDefaultAddress -> {
                         newDefaultAddress.setIsDefault(true);
                         userAddressRepository.save(newDefaultAddress);
-                        log.info("Set addressId {} as new default for userId {} after deleting old default.", newDefaultAddress.getId(), userId);
                     });
         }
 
         userAddressRepository.delete(address);
-        log.info("AddressId {} deleted successfully for userId: {}", addressId, userId);
     }
+
+//    @Override
+//    public void deleteUser(Long userId) {
+//        UserEntity user = userRepository.findById(userId)
+//                .orElseThrow(() -> {
+//                    log.warn("User deletion failed: User not found for userId: {}", userId);
+//                    return new AppException(ErrorCode.USER_NOT_FOUND);
+//                });
+//        userRepository.delete(user);
+//    }
+
+    @Override
+    public PageDto<UserDto> searchCustomers(SearchUserRequest request) {
+        Specification<UserEntity> spec = Specification
+                .where(UserSpecification.hasName(request.getName()))
+                .and(UserSpecification.hasPhone(request.getPhone()))
+                .and(UserSpecification.isActive(request.getIsActive()))
+                .and(UserSpecification.hasCustomerRole());
+
+        return searchUsers(request, spec);
+    }
+
+    @Override
+    public PageDto<UserDto> searchStaffs(SearchUserRequest request) {
+        Specification<UserEntity> spec = Specification
+                .where(UserSpecification.hasName(request.getName()))
+                .and(UserSpecification.hasPhone(request.getPhone()))
+                .and(UserSpecification.isActive(request.getIsActive()))
+                .and(UserSpecification.hasStaffRole());
+
+        return searchUsers(request, spec);
+    }
+
+    @Override
+    public UserDetailDto getUserInfoByPhone(String phone) {
+        UserEntity user = userRepository.findByPhone(phone)
+                .orElseThrow(() -> {
+                    log.warn("User not found for phone: {}", phone);
+                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                });
+        return userMapper.toUserDetailDto(user);
+    }
+
+    private PageDto<UserDto> searchUsers(SearchUserRequest request, Specification<UserEntity> spec) {
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<Tuple> cq = cb.createTupleQuery();
+        Root<UserEntity> root = cq.from(UserEntity.class);
+
+        // JOIN orders
+        Join<Object, Object> orders = root.join("orders", JoinType.LEFT);
+        orders.on(cb.equal(orders.get("status"), OrderStatus.COMPLETED));
+
+        // Áp dụng filter từ Specification
+        Predicate predicate = spec.toPredicate(root, cq, cb);
+        if (predicate != null) cq.where(predicate);
+
+        // GROUP BY
+        cq.groupBy(root.get("id"));
+
+        // Tính toán
+        Expression<Long> totalOrders = cb.count(orders.get("id"));
+        Expression<BigDecimal> totalSpent = cb.sum(
+                cb.coalesce(orders.get("totalAmount"), cb.literal(BigDecimal.ZERO))
+        );
+
+        // ORDER BY động
+        boolean desc = "desc".equalsIgnoreCase(request.getDir());
+        switch (request.getOrder()) {
+            case "total_orders" ->
+                    cq.orderBy(desc ? cb.desc(totalOrders) : cb.asc(totalOrders));
+            case "total_amount_spent" ->
+                    cq.orderBy(desc ? cb.desc(totalSpent) : cb.asc(totalSpent));
+            default ->
+                    cq.orderBy(desc ? cb.desc(root.get("createdAt")) : cb.asc(root.get("createdAt")));
+        }
+
+        // SELECT
+        cq.multiselect(
+                root.get("id").alias("id"),
+                root.get("name").alias("name"),
+                root.get("email").alias("email"),
+                root.get("phone").alias("phone"),
+                root.get("isActive").alias("isActive"),
+                root.get("createdAt").alias("createdAt"),
+                totalOrders.alias("totalOrders"),
+                totalSpent.alias("totalAmountSpent")
+        );
+
+        // PHÂN TRANG
+        int page = request.getPage() - 1;
+        int size = request.getSize();
+        List<Tuple> tuples = em.createQuery(cq)
+                .setFirstResult(page * size)
+                .setMaxResults(size)
+                .getResultList();
+
+        // COUNT QUERY
+        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
+        Root<UserEntity> countRoot = countQuery.from(UserEntity.class);
+        Predicate countPredicate = spec.toPredicate(countRoot, countQuery, cb);
+        if (countPredicate != null) countQuery.where(countPredicate);
+        countQuery.select(cb.countDistinct(countRoot));
+        long total = em.createQuery(countQuery).getSingleResult();
+
+        // MAP DTO
+        List<UserDto> userDtos = tuples.stream().map(t -> UserDto.builder()
+                .id(t.get("id", Long.class))
+                .name(t.get("name", String.class))
+                .email(t.get("email", String.class))
+                .phone(t.get("phone", String.class))
+                .isActive(t.get("isActive", Boolean.class))
+                .createdAt(t.get("createdAt", LocalDateTime.class))
+                .totalOrders(Optional.ofNullable(t.get("totalOrders", Long.class)).orElse(0L).intValue())
+                .totalAmountSpent(Optional.ofNullable(t.get("totalAmountSpent", BigDecimal.class)).orElse(BigDecimal.ZERO))
+                .build()).toList();
+
+        Page<UserDto> pageResult = new PageImpl<>(userDtos, PageRequest.of(page, size), total);
+        return new PageDto<>(pageResult);
+    }
+
 }

@@ -1,32 +1,21 @@
 package com.pbl6.dtos.user;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-
+@Builder
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class UserDto {
     private Long id;
     private String name;
     private String email;
     private String phone;
-    private String gender;
-    private LocalDate birth;
-    private String avatar;
     private Boolean isActive;
-    private Boolean isGuest;
-    private String roleName;
+    private LocalDateTime createdAt;
     private int totalOrders;
     private BigDecimal totalAmountSpent;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-
-    private List<UserAddressDto> addresses;
 }

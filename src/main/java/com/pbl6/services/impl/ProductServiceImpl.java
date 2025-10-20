@@ -115,10 +115,6 @@ public class ProductServiceImpl implements ProductService {
                 promotionService.getActivePromotionsGroupedByProduct(List.of(projection.getId()));
 
         List<PromotionEntity> promos = promoMap.getOrDefault(projection.getId(), List.of());
-//        BigDecimal finalPrice = promotionService.calculateFinalPrice(
-//                projection.getPrice(),
-//                promos
-//        );
 
         List<VariantDto> variants = variantService.getVariantsByProduct(projection.getId())
                 .stream()
@@ -182,6 +178,7 @@ public class ProductServiceImpl implements ProductService {
                 .medias(medias)
                 .promotions(promos.isEmpty() ? null : promos.stream().map(promotionMapper::toDto).toList())
                 .siblings(siblings)
+                .breadcrumb(categoryService.getBreadcrumbByProductSlug(projection.getSlug()))
                 .build();
     }
 
@@ -198,14 +195,17 @@ public class ProductServiceImpl implements ProductService {
         return projections.stream()
                 .map(p -> {
                     List<PromotionEntity> promos = promoMap.getOrDefault(p.getId(), List.of());
-                    BigDecimal finalPrice = promotionService.calculateFinalPrice(
-                            p.getPrice(),
-                            promos
-                    );
-                    return productMapper.toDto(p, finalPrice, promos);
+
+                    // ✅ Không tính lại, lấy giá sau giảm từ projection
+                    BigDecimal discounted = p.getDiscountedPrice() != null
+                            ? p.getDiscountedPrice()
+                            : p.getPrice();
+
+                    return productMapper.toDto(p, discounted, promos);
                 })
                 .toList();
     }
+
 
     private Page<ProductDto> applyPromotions(Page<ProductProjection> page) {
         List<Long> productIds = page.getContent().stream().map(ProductProjection::getId).toList();
@@ -213,53 +213,16 @@ public class ProductServiceImpl implements ProductService {
 
         return page.map(p -> {
             List<PromotionEntity> promos = promoMap.getOrDefault(p.getId(), List.of());
-            BigDecimal finalPrice = promotionService.calculateFinalPrice(
-                    p.getPrice(),
-                    promos
-            );
-            return productMapper.toDto(p, finalPrice, promos);
+
+            BigDecimal discounted = p.getDiscountedPrice() != null
+                    ? p.getDiscountedPrice()
+                    : p.getPrice();
+
+            return productMapper.toDto(p, discounted, promos);
         });
     }
 
-    // --------------------------------------------------------------
-    // PRICE CALCULATION
-    // --------------------------------------------------------------
 
-//    public BigDecimal calculateFinalPrice(BigDecimal basePrice, List<PromotionEntity> promotions) {
-//        if (basePrice == null || promotions == null || promotions.isEmpty()) {
-//            return basePrice;
-//        }
-//
-//        List<PromotionEntity> sortedPromos = promotions.stream()
-//                .sorted(Comparator.comparingInt(p -> Optional.ofNullable(p.getPriority()).orElse(0)))
-//                .toList();
-//
-//        BigDecimal currentPrice = basePrice;
-//        for (PromotionEntity promo : sortedPromos) {
-//            currentPrice = applyPromotion(currentPrice, promo);
-//            if (Boolean.TRUE.equals(promo.getExclusive())) break;
-//        }
-//
-//        return currentPrice.max(BigDecimal.ZERO);
-//    }
-
-//    private BigDecimal applyPromotion(BigDecimal basePrice, PromotionEntity promo) {
-//        if (promo == null || basePrice == null) return basePrice;
-//
-//        BigDecimal discount = switch (promo.getDiscountType()) {
-//            case PERCENTAGE -> basePrice
-//                    .multiply(promo.getDiscountValue())
-//                    .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
-//            case AMOUNT -> promo.getDiscountValue();
-//        };
-//
-//        if (promo.getMaxDiscountValue() != null &&
-//            discount.compareTo(promo.getMaxDiscountValue()) > 0) {
-//            discount = promo.getMaxDiscountValue();
-//        }
-//
-//        return basePrice.subtract(discount).max(BigDecimal.ZERO);
-//    }
 
     private double calculateBaseScore(ProductProjection p) {
         double ratingScore = p.getTotal() != null ? p.getAverage() * 5 : 0;

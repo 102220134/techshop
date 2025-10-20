@@ -1,6 +1,5 @@
 package com.pbl6.services.impl;
 
-import com.pbl6.dtos.request.checkout.OrderItemRequest;
 import com.pbl6.dtos.request.product.AddToCartRequest;
 import com.pbl6.dtos.response.cart.CartItemDto;
 import com.pbl6.dtos.response.product.VariantDto;
@@ -21,7 +20,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

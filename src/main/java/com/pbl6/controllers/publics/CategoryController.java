@@ -19,9 +19,9 @@ public class CategoryController {
     private final CategoryService categoryService;
     @GetMapping("/main")
     @Operation(description = "Danh mục chính")
-    public ApiResponseDto<List<CategoryDto>> getcategoryByRoot() {
+    public ApiResponseDto<List<CategoryDto>> getCategoryByRoot() {
         ApiResponseDto<List<CategoryDto>> response = new ApiResponseDto<>();
-        response.setData(categoryService.getcategoryByRoot(Boolean.FALSE));
+        response.setData(categoryService.getCategoryByRoot(Boolean.FALSE));
         return response;
     }
 

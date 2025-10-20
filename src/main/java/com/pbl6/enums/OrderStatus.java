@@ -1,17 +1,17 @@
 package com.pbl6.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.pbl6.exceptions.AppException;
+import com.pbl6.exceptions.ErrorCode;
 import lombok.Getter;
 
 @Getter
 public enum OrderStatus {
 
     PENDING("pending","Chờ xử lý"),
-//    PROCESSING("processing","Đang xử lý"),
-    AWAITING_PAYMENT("awaiting_payment","Chờ thanh toán"),
     CONFIRMED("confirmed","Đã xác nhận"),
-    PAID("paid","Đã thanh toán"),
-    SHIPPED("shipped","Đang giao"),
-    DELIVERED("delivered","Đã giao"),
+    DELIVERING("delivered","Đã giao"),
     COMPLETED("completed","Hoàn tất"),
     CANCELLED("cancelled","Hủy"),
     REFUSED("refused","Từ chối"),

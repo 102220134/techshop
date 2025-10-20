@@ -8,7 +8,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "users")
@@ -22,9 +26,13 @@ public class UserEntity implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "role_id", nullable = false)
-    private RoleEntity role;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<RoleEntity> roles = new HashSet<>();
 
     @Column(nullable = false, length = 100)
     private String name;
@@ -86,10 +94,21 @@ public class UserEntity implements UserDetails {
         updatedAt = LocalDateTime.now();
     }
 
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of( new SimpleGrantedAuthority("ROLE_"+ role.getName().toUpperCase()) );
+        Set<String> authorities = roles.stream()
+                .flatMap(role -> {
+                    Set<String> rolePerms = role.getPermissions().stream()
+                            .map(PermissionEntity::getName)
+                            .collect(Collectors.toSet());
+                    rolePerms.add("ROLE_" + role.getName());
+                    return rolePerms.stream();
+                })
+                .collect(Collectors.toSet());
+
+        return authorities.stream()
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -115,5 +134,15 @@ public class UserEntity implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    public boolean isCustomer() {
+        return roles.stream()
+                .anyMatch(role -> role.equals("CUSTOMER"));
+    }
+
+    public boolean hasAuthority(String authority) {
+        return getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals(authority));
     }
 }

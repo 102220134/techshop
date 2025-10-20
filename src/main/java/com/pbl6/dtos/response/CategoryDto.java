@@ -18,6 +18,8 @@ public class CategoryDto {
     private String logo;
 
     @Setter
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private BreadcrumbDto breadcrumb;
+
+    @Setter
     private List<CategoryDto> children;
 }

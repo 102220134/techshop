@@ -19,19 +19,6 @@ import java.util.List;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Bean
-    public OpenAPI openAPI() {
-        return new OpenAPI()
-                .servers(List.of(new io.swagger.v3.oas.models.servers.Server().url("/")))
-                .components(new Components()
-                        .addSecuritySchemes("bearerAuth",
-                                new SecurityScheme()
-                                        .type(SecurityScheme.Type.HTTP)
-                                        .scheme("bearer")
-                                        .bearerFormat("JWT")
-                        )
-                );
-    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {

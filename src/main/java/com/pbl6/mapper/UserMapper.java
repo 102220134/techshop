@@ -1,15 +1,17 @@
 package com.pbl6.mapper;
 
 import com.pbl6.dtos.request.auth.RegisterRequest;
-import com.pbl6.dtos.user.UserAddressDto;
+import com.pbl6.dtos.user.UserDetailDto;
 import com.pbl6.dtos.user.UserDto;
 import com.pbl6.entities.OrderEntity;
+import com.pbl6.entities.RoleEntity;
 import com.pbl6.entities.UserEntity;
 import com.pbl6.enums.OrderStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class UserMapper {
@@ -28,15 +30,39 @@ public class UserMapper {
         return userEntity;
     };
 
-    public UserDto toDto(UserEntity entity) {
-        if (entity == null) return null;
-        List<OrderEntity> ordersCompleted = entity.getOrders().stream()
-                .filter(order -> order.getStatus() == OrderStatus.COMPLETED)
+    public UserDto toUserDto(UserEntity entity) {
+        List<OrderEntity> ordersCompleted = Optional.ofNullable(entity.getOrders())
+                .orElse(List.of())
+                .stream()
+                .filter(order -> order != null && OrderStatus.COMPLETED.equals(order.getStatus()))
                 .toList();
+
         BigDecimal totalAmountSpent = ordersCompleted.stream()
-                .map(order -> order.getTotalAmount())
+                .map(order -> Optional.ofNullable(order.getTotalAmount()).orElse(BigDecimal.ZERO))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return UserDto.builder()
+                .id(entity.getId())
+                .name(entity.getName())
+                .email(entity.getEmail())
+                .phone(entity.getPhone())
+                .isActive(entity.getIsActive())
+                .totalOrders(ordersCompleted.size())
+                .totalAmountSpent(totalAmountSpent)
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    public UserDetailDto toUserDetailDto(UserEntity entity) {
+        List<OrderEntity> ordersCompleted = Optional.ofNullable(entity.getOrders())
+                .orElse(List.of())
+                .stream()
+                .filter(order -> order != null && OrderStatus.COMPLETED.equals(order.getStatus()))
+                .toList();
+
+        BigDecimal totalAmountSpent = ordersCompleted.stream()
+                .map(order -> Optional.ofNullable(order.getTotalAmount()).orElse(BigDecimal.ZERO))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return UserDetailDto.builder()
                 .id(entity.getId())
                 .name(entity.getName())
                 .email(entity.getEmail())
@@ -48,7 +74,7 @@ public class UserMapper {
                 .isGuest(entity.getIsGuest())
                 .totalOrders(ordersCompleted.size())
                 .totalAmountSpent(totalAmountSpent)
-                .roleName(entity.getRole() != null ? entity.getRole().getName() : null)
+                .roles(entity.getRoles().stream().map(RoleEntity::getName).toList())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .addresses(

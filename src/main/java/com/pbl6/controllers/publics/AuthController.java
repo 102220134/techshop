@@ -3,9 +3,11 @@ package com.pbl6.controllers.publics;
 import com.pbl6.dtos.request.auth.LoginRequest;
 import com.pbl6.dtos.request.auth.RefreshTokenRequest;
 import com.pbl6.dtos.request.auth.RegisterRequest;
+import com.pbl6.dtos.request.auth.ResetPasswordRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.LoginDto;
-import com.pbl6.services.RefreshTokenService;
+import com.pbl6.dtos.user.UserDto;
+import com.pbl6.services.AuthService;
 import com.pbl6.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -13,7 +15,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.apache.catalina.User;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,8 +26,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("api/public/auth")
 @Tag(name = "Authentication", description = "API xác thực: đăng ký, đăng nhập, refresh token")
 public class AuthController {
+    private final AuthService authService;
     private final UserService userService;
-    private final RefreshTokenService refeshTokenService;
 
     @Operation(
             summary = "Đăng ký",
@@ -33,9 +38,8 @@ public class AuthController {
             }
     )
     @PostMapping("register")
-    public ApiResponseDto<?> Register(@Valid @RequestBody RegisterRequest registerRequest) {
-        userService.createUser(registerRequest);
-        return new ApiResponseDto<>();
+    public ApiResponseDto<UserDto> register(@Valid @RequestBody RegisterRequest registerRequest) {
+        return new ApiResponseDto<>(userService.createUser(registerRequest));
     }
 
     @Operation(
@@ -47,8 +51,8 @@ public class AuthController {
             }
     )
     @PostMapping("login")
-    public ApiResponseDto<LoginDto> Login(@Valid @RequestBody LoginRequest loginRequest) {
-        LoginDto loginResponse = userService.login(loginRequest);
+    public ApiResponseDto<LoginDto> login(@Valid @RequestBody LoginRequest loginRequest) {
+        LoginDto loginResponse = authService.login(loginRequest);
         ApiResponseDto<LoginDto> response = new ApiResponseDto<>();
         response.setData(loginResponse);
         return response;
@@ -63,10 +67,20 @@ public class AuthController {
             }
     )
     @PostMapping("refresh_token")
-    public ApiResponseDto<LoginDto> RefreshToken(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
-        LoginDto loginResponse = refeshTokenService.refreshToken(refreshTokenRequest.getRefreshToken());
+    public ApiResponseDto<LoginDto> refreshToken(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest) {
+        LoginDto loginResponse = authService.refreshToken(refreshTokenRequest.getRefreshToken());
         ApiResponseDto<LoginDto> response = new ApiResponseDto<>();
         response.setData(loginResponse);
         return response;
+    }
+
+    @PostMapping("reset-password")
+    @Operation(summary = "Quên mật khẩu")
+    public ApiResponseDto<?> resetPassword(
+            @Valid
+            @RequestBody ResetPasswordRequest request
+    ) {
+        authService.resetPasswordAndSend(request.getEmail());
+        return new ApiResponseDto<>();
     }
 }

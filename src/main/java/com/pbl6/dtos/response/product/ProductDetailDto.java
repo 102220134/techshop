@@ -3,6 +3,7 @@ package com.pbl6.dtos.response.product;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.pbl6.dtos.response.BreadcrumbDto;
 import com.pbl6.dtos.response.promotion.PromotionDto;
 import lombok.*;
 
@@ -28,7 +29,8 @@ import java.util.List;
         "variants",
         "medias",
         "siblings",
-        "rating"
+        "rating",
+        "breadcrumb"
 })
 public class ProductDetailDto {
 
@@ -62,6 +64,8 @@ public class ProductDetailDto {
     private List<SiblingDto> siblings;
 
     private RatingSummary rating;
+
+    private BreadcrumbDto breadcrumb;
 
     // ==========================
     // Inner DTOs

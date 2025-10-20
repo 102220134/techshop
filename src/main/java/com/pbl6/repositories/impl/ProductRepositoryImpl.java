@@ -193,12 +193,26 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
 
         // Price filters - simplified since we use subqueries
         if (req.getPrice_from() != null) {
-            sql.append(" AND (SELECT MIN(v.price) FROM variants v WHERE v.product_id = p.id AND v.is_active = 1) >= :priceFrom ");
+            sql.append("""
+        AND (SELECT MIN(vep.effective_price)
+             FROM variant_effective_price vep
+             INNER JOIN variants v ON v.id = vep.variant_id
+             WHERE vep.product_id = p.id
+               AND v.is_active = 1) >= :priceFrom
+    """);
         }
-        
+
         if (req.getPrice_to() != null) {
-            sql.append(" AND (SELECT MIN(v.price) FROM variants v WHERE v.product_id = p.id AND v.is_active = 1) <= :priceTo ");
+            sql.append("""
+        AND (SELECT MIN(vep.effective_price)
+             FROM variant_effective_price vep
+             INNER JOIN variants v ON v.id = vep.variant_id
+             WHERE vep.product_id = p.id
+               AND v.is_active = 1) <= :priceTo
+    """);
         }
+
+
 
         // Attribute filters
         if (req.getFilter() != null && !req.getFilter().isEmpty()) {
@@ -207,10 +221,21 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
             }
         }
     }
-    
+
     private void applySorting(StringBuilder sql, ProductFilterRequest req) {
-        String orderCol = SORT_MAPPING.getOrDefault(req.getOrder(), "p.id");
         String direction = "desc".equalsIgnoreCase(req.getDir()) ? "DESC" : "ASC";
+        String orderCol;
+
+        switch (req.getOrder()) {
+            case "price" -> orderCol = "discounted_price";
+            case "stock" -> orderCol = "stock";
+            case "sold" -> orderCol = "sold";
+            case "rating" -> orderCol = "average";
+            case "createdAt" -> orderCol = "p.created_at";
+            default -> orderCol = "p.id";
+        }
+
+        sql.append(" GROUP BY p.id, p.name, p.description, p.slug, p.thumbnail, p.detail, p.created_at, p.updated_at ");
         sql.append(" ORDER BY ").append(orderCol).append(" ").append(direction);
     }
     
@@ -306,28 +331,33 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
             }
 
             @Override
-            public Integer getStock() {
-                return row[9] != null ? ((Number) row[9]).intValue() : 0;
+            public BigDecimal getDiscountedPrice() {
+                return (BigDecimal) row[9]; // nhớ đẩy các index còn lại +1
             }
 
             @Override
-            public Integer getReservedStock() {
+            public Integer getStock() {
                 return row[10] != null ? ((Number) row[10]).intValue() : 0;
             }
 
             @Override
-            public Integer getSold() {
+            public Integer getReservedStock() {
                 return row[11] != null ? ((Number) row[11]).intValue() : 0;
             }
 
             @Override
+            public Integer getSold() {
+                return row[12] != null ? ((Number) row[12]).intValue() : 0;
+            }
+
+            @Override
             public Long getTotal() {
-                return row[12] != null ? ((Number) row[12]).longValue() : 0L;
+                return row[13] != null ? ((Number) row[13]).longValue() : 0L;
             }
 
             @Override
             public Double getAverage() {
-                return row[13] != null ? ((Number) row[13]).doubleValue() : 0.0;
+                return row[14] != null ? ((Number) row[14]).doubleValue() : 0.0;
             }
         };
     }

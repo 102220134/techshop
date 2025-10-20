@@ -1,6 +1,6 @@
 package com.pbl6.mapper;
 
-import com.pbl6.dtos.request.checkout.OrderRequest;
+import com.pbl6.dtos.request.order.OrderRequest;
 import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.dtos.response.order.OrderDto;
 import com.pbl6.dtos.response.order.OrderItemDto;
@@ -28,9 +28,10 @@ public class OrderMapper {
                 .snapshotWard(req.getWard())
                 .snapshotDistrict(req.getDistrict())
                 .snapshotProvince(req.getProvince())
+                .isOnline(req.getIsOnline())
                 .build();
     }
-    public OrderDto toOrderDto(OrderEntity order) {
+    public OrderDto toDto(OrderEntity order) {
         return OrderDto.builder()
                 .id(order.getId())
                 .status(order.getStatus().getLabel())

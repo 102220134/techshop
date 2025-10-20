@@ -1,4 +1,4 @@
-package com.pbl6.controllers.customers;
+package com.pbl6.controllers.privates;
 
 import com.pbl6.dtos.request.product.AddToCartRequest;
 import com.pbl6.dtos.response.ApiResponseDto;

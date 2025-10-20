@@ -20,7 +20,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
 
-        ApiResponseDto<?> res = new ApiResponseDto<>();
+        ErrorResponseApi res = new ErrorResponseApi();
         res.setCode(ErrorCode.UNAUTHORIZED.getCode());
         res.setMessage(ErrorCode.UNAUTHORIZED.getMessage());
 

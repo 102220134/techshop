@@ -78,6 +78,7 @@ public class ProductController {
     @Operation(summary = "Lọc sản phẩm")
     @GetMapping("/filter/{*cateSlug}")
     public ApiResponseDto<PageDto<ProductDto>> searchProducts(
+            @Schema(defaultValue = "mobile")
             @PathVariable String cateSlug,
             @ParameterObject ProductFilterRequest req,
             @RequestParam @Schema(defaultValue = """
@@ -115,6 +116,7 @@ public class ProductController {
     @GetMapping("/{slug}/detail")
     @Operation(summary = "Chi tiết sản phẩm")
     public ApiResponseDto<ProductDetailDto> getProductDetail(
+            @Schema(defaultValue = "iphone-16-pro-max")
             @PathVariable String slug
     ) {
         slug = slug.startsWith("/") ? slug.substring(1) : slug;

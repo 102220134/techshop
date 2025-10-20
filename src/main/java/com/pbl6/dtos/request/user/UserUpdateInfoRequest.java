@@ -1,4 +1,4 @@
-package com.pbl6.dtos.request.profile;
+package com.pbl6.dtos.request.user;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -9,7 +9,7 @@ import java.time.LocalDate;
 
 @Data
 @Schema(description = "Thông tin cập nhật hồ sơ người dùng")
-public class ProfileUpdateRequest {
+public class UserUpdateInfoRequest {
 
     @Schema(description = "Tên người dùng")
     @NotBlank(message = "REQUIRED_FIELD_MISSING")

@@ -1,7 +1,9 @@
 package com.pbl6.services.impl;
 
-import com.pbl6.dtos.request.checkout.OrderItemRequest;
-import com.pbl6.dtos.request.checkout.OrderRequest;
+import com.pbl6.dtos.request.order.OrderItemRequest;
+import com.pbl6.dtos.request.order.OrderRequest;
+import com.pbl6.dtos.request.order.MyOrderRequest;
+import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.order.OrderDto;
 import com.pbl6.entities.*;
 import com.pbl6.enums.*;
@@ -16,6 +18,10 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -125,7 +131,6 @@ public class OrderServiceImpl implements OrderService {
         );
 
         if (ordersToCancel.isEmpty()) {
-            log.info("No PENDING orders with BANK payment method found that have exceeded the payment timeout.");
             return;
         }
 
@@ -134,11 +139,9 @@ public class OrderServiceImpl implements OrderService {
         List<PaymentEntity> paymentsToUpdate = new ArrayList<>();
         List<InventoryEntity> inventoriesToUpdate = new ArrayList<>();
         List<ProductSerialEntity> productSerialsToUpdate = new ArrayList<>();
-        List<ReservationEntity> reservationsToDelete = new ArrayList<>();
+        List<ReservationEntity> reservationsToUpdate = new ArrayList<>();
 
         for (OrderEntity order : ordersToCancel) {
-            log.debug("Processing order ID {} for cancellation.", order.getId());
-
             // Update order status to CANCELLED
             order.setStatus(OrderStatus.CANCELLED);
             order.setUpdatedAt(LocalDateTime.now());
@@ -178,7 +181,9 @@ public class OrderServiceImpl implements OrderService {
                         })
                         .forEach(productSerialsToUpdate::add);
 
-                reservationsToDelete.add(reservation);
+                reservation.setStatus(ReservationStatus.CANCELLED);
+
+                reservationsToUpdate.add(reservation);
             });
         }
 
@@ -187,10 +192,11 @@ public class OrderServiceImpl implements OrderService {
         paymentRepository.saveAll(paymentsToUpdate);
         inventoryRepository.saveAll(inventoriesToUpdate);
         productSerialRepository.saveAll(productSerialsToUpdate);
-        reservationRepository.deleteAll(reservationsToDelete);
+        reservationRepository.saveAll(reservationsToUpdate);
 
         log.info("Successfully cancelled {} timed out orders.", ordersToCancel.size());
     }
+
 
 //    @Override
 //    public void cancelOrder(Long orderId) {
@@ -224,12 +230,35 @@ public class OrderServiceImpl implements OrderService {
 
     // ---------------------- GET USER ORDERS ----------------------
 
-    @Override
-    public List<OrderDto> getOrderByUser(Long userID) {
-        return orderRepository.findByUserId(userID).stream()
-                .map(orderMapper::toOrderDto)
+    public PageDto<OrderDto> getOrderByUser(Long userId, MyOrderRequest request) {
+        Sort.Direction direction = request.getDir().equalsIgnoreCase("asc")
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+
+        Map<String, String> fieldMapping = Map.of(
+                "created_at", "createdAt",
+                "total_amount", "totalAmount"
+        );
+
+        String sortField = fieldMapping.getOrDefault(request.getOrder(), "createdAt");
+
+        Pageable pageable = PageRequest.of(request.getPage() - 1, request.getSize(), Sort.by(direction, sortField));
+
+        Page<OrderEntity> page;
+
+        if (request.getOrderStatus() != null) {
+            page = orderRepository.findByUserIdAndStatus(userId, request.getOrderStatus(), pageable);
+        } else {
+            page = orderRepository.findByUserId(userId, pageable);
+        }
+        List<OrderDto> content = page.getContent().stream()
+                .map(orderMapper::toDto)
                 .toList();
+
+        return new PageDto<>(page.map(orderMapper::toDto));
     }
+
+
 
     // ---------------------- MARK STATUS ----------------------
 
@@ -239,43 +268,4 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(status);
         orderRepository.save(order);
     }
-
-    // ---------------------- PRICE CALCULATION ----------------------
-//
-//    private BigDecimal calculateFinalPrice(BigDecimal basePrice, List<PromotionEntity> promotions) {
-//        if (basePrice == null || promotions == null || promotions.isEmpty()) return basePrice;
-//
-//        List<PromotionEntity> sortedPromos = promotions.stream()
-//                .sorted(Comparator.comparingInt(p -> Optional.ofNullable(p.getPriority()).orElse(0)))
-//                .toList();
-//
-//        BigDecimal currentPrice = basePrice;
-//
-//        for (PromotionEntity promo : sortedPromos) {
-//            currentPrice = applyPromotion(currentPrice, promo);
-//            if (Boolean.TRUE.equals(promo.getExclusive())) break;
-//        }
-//
-//        return currentPrice.max(BigDecimal.ZERO);
-//    }
-//
-//    private BigDecimal applyPromotion(BigDecimal basePrice, PromotionEntity promo) {
-//        if (promo == null || basePrice == null) return basePrice;
-//
-//        BigDecimal discount = BigDecimal.ZERO;
-//
-//        switch (promo.getDiscountType()) {
-//            case PERCENTAGE -> discount = basePrice
-//                    .multiply(promo.getDiscountValue())
-//                    .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
-//            case AMOUNT-> discount = promo.getDiscountValue();
-//        }
-//
-//        if (promo.getMaxDiscountValue() != null &&
-//            discount.compareTo(promo.getMaxDiscountValue()) > 0) {
-//            discount = promo.getMaxDiscountValue();
-//        }
-//
-//        return basePrice.subtract(discount).max(BigDecimal.ZERO);
-//    }
 }

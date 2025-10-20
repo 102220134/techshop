@@ -71,7 +71,7 @@ public class PaymentServiceImpl implements PaymentService {
             case 0 -> { // ✅ Đúng số tiền
                 payment.setStatus(PaymentStatus.PAID);
                 paymentRepo.save(payment);
-                orderService.markOrderStatus(orderId, OrderStatus.PAID);
+                orderService.markOrderStatus(orderId, OrderStatus.CONFIRMED);
                 template.convertAndSend("/topic/"+orderId, payment.getStatus());
                 log.info("Payment success for order {}, amount={}", orderId, actualAmount);
                 return "payment success";
