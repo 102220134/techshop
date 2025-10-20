@@ -28,7 +28,7 @@ public class OrderMapper {
                 .snapshotWard(req.getWard())
                 .snapshotDistrict(req.getDistrict())
                 .snapshotProvince(req.getProvince())
-                .isOnline(req.getIsOnline())
+                .isOnline(req.getIsOnline()==null? false: req.getIsOnline())
                 .build();
     }
     public OrderDto toDto(OrderEntity order) {
