@@ -154,12 +154,7 @@ public class UserServiceImpl implements UserService {
             return userMapper.toUserDetailDto(targetUser);
         }
 
-        boolean targetIsCustomer = targetUser.getRoles().stream()
-                .anyMatch(role -> role.getName().equals("CUSTOMER"));
-        if (currentUser.hasAuthority("USER_READ_CUSTOMER") && targetIsCustomer) {
-            return userMapper.toUserDetailDto(targetUser);
-        }
-        throw new AppException(ErrorCode.FORBIDDEN);
+        return userMapper.toUserDetailDto(targetUser);
     }
 
     @Override
@@ -438,12 +433,9 @@ public class UserServiceImpl implements UserService {
         // ORDER BY động
         boolean desc = "desc".equalsIgnoreCase(request.getDir());
         switch (request.getOrder()) {
-            case "total_orders" ->
-                    cq.orderBy(desc ? cb.desc(totalOrders) : cb.asc(totalOrders));
-            case "total_amount_spent" ->
-                    cq.orderBy(desc ? cb.desc(totalSpent) : cb.asc(totalSpent));
-            default ->
-                    cq.orderBy(desc ? cb.desc(root.get("createdAt")) : cb.asc(root.get("createdAt")));
+            case "total_orders" -> cq.orderBy(desc ? cb.desc(totalOrders) : cb.asc(totalOrders));
+            case "total_amount_spent" -> cq.orderBy(desc ? cb.desc(totalSpent) : cb.asc(totalSpent));
+            default -> cq.orderBy(desc ? cb.desc(root.get("createdAt")) : cb.asc(root.get("createdAt")));
         }
 
         // SELECT
