@@ -5,6 +5,7 @@ import com.pbl6.enums.InventoryLocationType;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.repositories.InventoryRepository;
+import com.pbl6.repositories.VariantRepository;
 import com.pbl6.services.InventoryService;
 import com.pbl6.services.ProductSerialService;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +23,13 @@ public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryRepository inventoryRepository;
     private final ProductSerialService serialService;
+    private final VariantRepository variantRepository;
 
-    /** --------------------------
-     *  1️⃣ Xử lý pickup tại cửa hàng
-     *  -------------------------- */
+    /**
+     * --------------------------
+     * 1️⃣ Xử lý pickup tại cửa hàng
+     * --------------------------
+     */
     @Transactional
     @Override
     public void handlePickupAtStore(StoreEntity store, List<OrderItemEntity> orderItems) {
@@ -57,18 +61,30 @@ public class InventoryServiceImpl implements InventoryService {
         if (!remainingNeeds.isEmpty()) handleWarehouseFulfillment(store.getInventoryLocation(), remainingNeeds);
     }
 
-    /** --------------------------
-     *  2️⃣ Xử lý giao tận nơi
-     *  -------------------------- */
+    /**
+     * --------------------------
+     * 2️⃣ Xử lý giao tận nơi
+     * --------------------------
+     */
     @Transactional
     @Override
     public void handleShip(List<OrderItemEntity> orderItems) {
         if (!orderItems.isEmpty()) handleWarehouseFulfillment(null, orderItems);
     }
 
-    /** --------------------------
-     *  3️⃣ Fulfillment (Transfer hoặc Ship)
-     *  -------------------------- */
+    @Override
+    public boolean isInStock(Long variantId, Integer quantity) {
+        VariantEntity variant = variantRepository.findByIdAndIsActive(variantId, true).orElseThrow(
+                () -> new AppException(ErrorCode.PRODUCT_NOT_FOUND)
+        );
+        return variant.getAvailableStock() > 0;
+    }
+
+    /**
+     * --------------------------
+     * 3️⃣ Fulfillment (Transfer hoặc Ship)
+     * --------------------------
+     */
     private void handleWarehouseFulfillment(InventoryLocationEntity targetStore, List<OrderItemEntity> items) {
         findWarehouseThatCanFulfillAll(items).ifPresentOrElse(source -> {
             items.forEach(item -> {
@@ -88,9 +104,11 @@ public class InventoryServiceImpl implements InventoryService {
         });
     }
 
-    /** --------------------------
-     *  4️⃣ Tìm kho đủ hàng cho toàn bộ nhu cầu
-     *  -------------------------- */
+    /**
+     * --------------------------
+     * 4️⃣ Tìm kho đủ hàng cho toàn bộ nhu cầu
+     * --------------------------
+     */
     private Optional<InventoryLocationEntity> findWarehouseThatCanFulfillAll(List<OrderItemEntity> needs) {
         Map<Long, Integer> totalNeeds = needs.stream()
                 .collect(Collectors.toMap(i -> i.getVariant().getId(), OrderItemEntity::getQuantity, Integer::sum));
@@ -118,9 +136,11 @@ public class InventoryServiceImpl implements InventoryService {
                 .map(Map.Entry::getKey);
     }
 
-    /** --------------------------
-     *  5️⃣ Chia nhỏ fulfillment từ nhiều kho
-     *  -------------------------- */
+    /**
+     * --------------------------
+     * 5️⃣ Chia nhỏ fulfillment từ nhiều kho
+     * --------------------------
+     */
     private void handleFromMultipleSources(List<OrderItemEntity> items, InventoryLocationEntity targetStore) {
         for (OrderItemEntity item : items) {
             Long variantId = item.getVariant().getId();
@@ -139,9 +159,11 @@ public class InventoryServiceImpl implements InventoryService {
         }
     }
 
-    /** --------------------------
-     *  6️⃣ Fulfill từ nhiều nguồn
-     *  -------------------------- */
+    /**
+     * --------------------------
+     * 6️⃣ Fulfill từ nhiều nguồn
+     * --------------------------
+     */
     private int fulfillFromSources(OrderItemEntity item, List<InventoryEntity> sources,
                                    InventoryLocationEntity targetStore, int remaining) {
         for (InventoryEntity src : sources) {
@@ -165,9 +187,11 @@ public class InventoryServiceImpl implements InventoryService {
         return remaining;
     }
 
-    /** --------------------------
-     *  7️⃣ Helper Methods
-     *  -------------------------- */
+    /**
+     * --------------------------
+     * 7️⃣ Helper Methods
+     * --------------------------
+     */
     private void reserveStock(InventoryEntity inv, OrderItemEntity item, int qty) {
         inv.addReservedStock(qty);
         serialService.reserveSerial(sliceItem(item, qty), inv.getInventoryLocation());

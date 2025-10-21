@@ -27,7 +27,7 @@ public class SwaggerConfig {
     @Bean
     public GroupedOpenApi allApi() {
         return GroupedOpenApi.builder()
-                .group("All") // tên group swagger
+                .group("AllAPIs") // tên group swagger
                 .pathsToMatch("/api/**") // chỉ scan các API /api/admin
                 .displayName("All APIs")
                 .build();
@@ -50,6 +50,15 @@ public class SwaggerConfig {
                 .group("UserManager")
                 .pathsToMatch("/api/user/**")
                 .displayName("UserManager APIs")
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi ProfileApi() {
+        return GroupedOpenApi.builder()
+                .group("Profile")
+                .pathsToMatch("/api/customer/**")
+                .displayName("Profile APIs")
                 .build();
     }
 }

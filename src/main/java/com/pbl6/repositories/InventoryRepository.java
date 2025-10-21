@@ -17,12 +17,12 @@ public interface InventoryRepository extends JpaRepository<InventoryEntity, Long
 
     List<InventoryEntity> findByVariantId(Long variantId);
 
-    @Query("""
-       SELECT COALESCE(SUM(i.stock - i.reservedStock), 0)
-       FROM InventoryEntity i
-       WHERE i.variant.id = :variantId
-       """)
-    int getAvailableStockByVariantId(@Param("variantId") Long variantId);
+//    @Query("""
+//       SELECT COALESCE(SUM(i.stock - i.reservedStock), 0)
+//       FROM InventoryEntity i
+//       WHERE i.variant.id = :variantId
+//       """)
+//    int getAvailableStockByVariantId(@Param("variantId") Long variantId);
 
     @Query(value = """
     SELECT * FROM inventory i 

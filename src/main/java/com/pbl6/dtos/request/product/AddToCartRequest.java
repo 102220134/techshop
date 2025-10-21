@@ -14,6 +14,6 @@ public class AddToCartRequest {
     Long variantId;
 
     @NotNull(message = "REQUIRED_FIELD_MISSING")
-    @Min(value = 1, message = "INVALID_FIELD_FORMAT")
+    @Min(value = 0, message = "INVALID_FIELD_FORMAT")
     Integer quantity;
 }

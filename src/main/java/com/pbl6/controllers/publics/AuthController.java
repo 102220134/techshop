@@ -5,7 +5,7 @@ import com.pbl6.dtos.request.auth.RefreshTokenRequest;
 import com.pbl6.dtos.request.auth.RegisterRequest;
 import com.pbl6.dtos.request.auth.ResetPasswordRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
-import com.pbl6.dtos.response.LoginDto;
+import com.pbl6.dtos.response.auth.LoginDto;
 import com.pbl6.dtos.user.UserDto;
 import com.pbl6.services.AuthService;
 import com.pbl6.services.UserService;
@@ -15,10 +15,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
-import org.apache.catalina.User;
 import org.springframework.web.bind.annotation.*;
 
 @RestController

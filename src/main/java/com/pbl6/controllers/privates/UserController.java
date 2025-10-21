@@ -77,6 +77,8 @@ public class UserController {
         return new ApiResponseDto<>(userService.updateUserStatus(userId,request));
     }
 
+
+
 //    @PreAuthorize("hasAuthority('USER_DELETE')")
 //    @DeleteMapping("/delete/{userId}")
 //    @Operation(summary = "Xóa tài khoản user", security = { @SecurityRequirement(name = "bearerAuth") })

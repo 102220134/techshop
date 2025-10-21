@@ -41,35 +41,25 @@ public class ProductDetailDto {
     private String thumbnail;
 
     @JsonProperty("price")
-    private Double price; // nếu bạn có giá base
+    private Double price;
 
     @JsonProperty("special_price")
-    private Double specialPrice; // nếu có giá khuyến mãi
+    private Double specialPrice;
 
     private List<PromotionDto> promotions;
 
     private boolean isAvailable;
     private ObjectNode detail;
 
-    /** 🔹 Danh sách thuộc tính hiển thị (attribute name, value) */
-//    private List<AttributeDto> attributes;
-
-    /** 🔹 Danh sách biến thể (màu, dung lượng, v.v.) */
     private List<VariantDto> variants;
 
-    /** 🔹 Ảnh, video... */
     private List<MediaDto> medias;
 
-    /** 🔹 Sản phẩm liên quan (sibling) */
     private List<SiblingDto> siblings;
 
     private RatingSummary rating;
 
     private BreadcrumbDto breadcrumb;
-
-    // ==========================
-    // Inner DTOs
-    // ==========================
 
     @AllArgsConstructor
     @Getter
@@ -77,18 +67,6 @@ public class ProductDetailDto {
         private long total;
         private double average;
     }
-
-//    @AllArgsConstructor
-//    @NoArgsConstructor
-//    @Builder
-//    @Getter
-//    @Setter
-//    public static class AttributeDto {
-//        private Long id;
-//        private String code;
-//        private String label;
-//        private String value;
-//    }
 
     @AllArgsConstructor
     @NoArgsConstructor

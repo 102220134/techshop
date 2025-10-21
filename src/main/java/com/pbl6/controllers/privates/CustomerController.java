@@ -1,28 +1,33 @@
 package com.pbl6.controllers.privates;
 
+import com.pbl6.dtos.request.order.MyOrderRequest;
 import com.pbl6.dtos.request.user.ChangePasswordRequest;
 import com.pbl6.dtos.request.user.UserUpdateInfoRequest;
 import com.pbl6.dtos.request.user.UserAddressCreateRequest;
 import com.pbl6.dtos.request.user.UserAddressUpdateRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
+import com.pbl6.dtos.response.PageDto;
+import com.pbl6.dtos.response.order.OrderDto;
 import com.pbl6.dtos.user.UserAddressDto;
 import com.pbl6.dtos.user.UserDetailDto;
+import com.pbl6.services.OrderService;
 import com.pbl6.services.UserService;
 import com.pbl6.utils.AuthenticationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("api/customer/")
 @RequiredArgsConstructor
 @Tag(name = "Hồ sơ của tôi")
-//@PreAuthorize("hasRole('CUSTOMER')")
 public class CustomerController {
     private final AuthenticationUtil authenticationUtil;
     private final UserService userService;
+    private final OrderService orderService;
 
     @GetMapping("my-profile")
     @Operation(summary = "Lấy thong tin", security = { @SecurityRequirement(name = "bearerAuth") })
@@ -65,6 +70,13 @@ public class CustomerController {
         Long userId = authenticationUtil.getCurrentUserId();
         userService.deleteAddress(userId, id);
         return new ApiResponseDto<>("Xóa địa chỉ thành công");
+    }
+
+    @GetMapping("my-order")
+    @Operation(summary = "Đơn hàng của tôi", security = { @SecurityRequirement(name = "bearerAuth") })
+    public ApiResponseDto<PageDto<OrderDto>> getOrderByUser(@ParameterObject MyOrderRequest request) {
+        Long userId =  authenticationUtil.getCurrentUserId();
+        return new ApiResponseDto<>(orderService.getOrderByUser(userId,request));
     }
 
 }

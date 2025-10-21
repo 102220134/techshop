@@ -8,4 +8,5 @@ import java.util.List;
 public interface InventoryService {
     void handlePickupAtStore(StoreEntity store, List<OrderItemEntity> orderItems);
     void handleShip(List<OrderItemEntity> orderItems);
+    boolean isInStock(Long variantId, Integer quantity);
 }

@@ -4,14 +4,26 @@ import com.pbl6.dtos.response.product.MediaDto;
 import com.pbl6.entities.MediaEntity;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+import java.util.Set;
+
 @Component
 public class MediaMapper {
-    public MediaDto toDto(MediaEntity entity) {
+
+    public List<MediaDto> toDtoList(Set<MediaEntity> medias) {
+        if (medias == null) return List.of();
+        return medias.stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    public MediaDto toDto(MediaEntity media) {
         return MediaDto.builder()
-                .id(entity.getId())
-                .url(entity.getUrl())
-                .mediaType(entity.getMediaType())
-                .altText(entity.getAltText())
+                .id(media.getId())
+                .url(media.getUrl())
+                .mediaType(media.getMediaType())
+                .altText(media.getAltText())
                 .build();
     }
 }
+

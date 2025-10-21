@@ -2,6 +2,7 @@ package com.pbl6.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Formula;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,6 +36,24 @@ public class VariantEntity implements Activatable {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+
+    // Giá giảm hiệu lực (nếu có bảng variant_effective_price)
+    @Formula("(SELECT vep.effective_price FROM variant_effective_price vep WHERE vep.variant_id = id LIMIT 1)")
+    private BigDecimal discountedPrice;
+
+    // Tổng tồn kho
+    @Formula("(SELECT COALESCE(SUM(i.stock), 0) FROM inventories i WHERE i.variant_id = id)")
+    private Integer stock;
+
+    // Tồn kho đã giữ chỗ
+    @Formula("(SELECT COALESCE(SUM(i.reserved_stock), 0) FROM inventories i WHERE i.variant_id = id)")
+    private Integer reservedStock;
+
+    // Số lượng đã bán
+    @Formula("(SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.variant_id = id)")
+    private Integer sold;
+
+
     @OneToMany(mappedBy="variant", fetch=FetchType.LAZY)
     private List<InventoryEntity> inventories;
 
@@ -52,4 +71,8 @@ public class VariantEntity implements Activatable {
 
     @OneToMany(mappedBy="variant", fetch=FetchType.LAZY)
     private List<ProductSerialEntity> productSerials;
+
+    public int getAvailableStock(){
+        return stock-reservedStock;
+    }
 }

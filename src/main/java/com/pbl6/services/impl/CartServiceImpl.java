@@ -34,18 +34,17 @@ public class CartServiceImpl implements CartService {
 
     @Override
     public void addToCart(Long userId, AddToCartRequest request) {
-        VariantEntity variant = entityUtil.ensureExists(variantRepository.findById(request.getVariantId()));
+        VariantEntity variant = entityUtil.ensureExists(
+                variantRepository.findById(request.getVariantId()));
         entityUtil.ensureActive(variant, false);
 
-         int availableStock = inventoryRepository.findByVariantId(request.getVariantId()).stream()
-                .mapToInt(InventoryEntity::getAvailableStock)
-                .sum();
-         if (availableStock<request.getQuantity()) {
-             log.error("Thêm vào giỏ hàng vượt quá số lượng hàng có sẵn");
-             throw new AppException(ErrorCode.STOCK_NOT_AVAILABLE);
-         }
+        if (variant.getAvailableStock() < request.getQuantity()) {
+            log.error("Thêm vào giỏ hàng vượt quá số lượng hàng có sẵn");
+            throw new AppException(ErrorCode.STOCK_NOT_AVAILABLE);
+        }
 
-        CartItemEntity cartItem = cartItemRepository.findByUserIdAndVariantId(userId, request.getVariantId())
+        CartItemEntity cartItem = cartItemRepository
+                .findByUserIdAndVariantId(userId, request.getVariantId())
                 .orElseGet(() -> {
                     UserEntity userRef = new UserEntity();
                     userRef.setId(userId);
@@ -57,42 +56,40 @@ public class CartServiceImpl implements CartService {
                     return newItem;
                 });
 
-        cartItem.setQuantity(cartItem.getQuantity() + request.getQuantity());
+
+        int newQuantity = request.getQuantity();
+
+        // ✅ Nếu số lượng <= 0 thì xóa khỏi giỏ
+        if (newQuantity <= 0) {
+            cartItemRepository.delete(cartItem);
+            log.info("Đã xoá sản phẩm {} khỏi giỏ hàng của user {}", variant.getId(), userId);
+            return;
+        }
+
+        // ✅ Ngược lại thì cập nhật
+        cartItem.setQuantity(newQuantity);
         cartItemRepository.save(cartItem);
     }
+
 
     @Override
     public List<CartItemDto> getCartItems(Long userId) {
         UserEntity user = entityUtil.ensureExists(userRepository.findById(userId));
-
-        // 1️⃣ Lấy danh sách sản phẩm trong giỏ
         List<CartItemEntity> cartItems = user.getCartItems();
         List<Long> productIds = cartItems.stream()
                 .map(ci -> ci.getVariant().getProduct().getId())
                 .distinct()
                 .toList();
-
-        // 2️⃣ Lấy toàn bộ promotion theo productId
-        Map<Long, List<PromotionEntity>> promoMap =
-                promotionService.getActivePromotionsGroupedByProduct(productIds);
-
-        // 3️⃣ Tính giá từng item
         return cartItems.stream()
                 .map(cartItem -> {
                     VariantEntity variant = cartItem.getVariant();
                     Long productId = variant.getProduct().getId();
-                    List<PromotionEntity> promos = promoMap.getOrDefault(productId, List.of());
-
-                    BigDecimal basePrice = variant.getPrice();
-                    BigDecimal finalPrice = promotionService.calculateFinalPrice(basePrice, promos);
-
-
                     VariantDto variantDto = VariantDto.builder()
                             .id(variant.getId())
                             .sku(variant.getSku())
                             .thumbnail(variant.getThumbnail())
                             .price(variant.getPrice())
-                            .specialPrice(finalPrice)
+                            .specialPrice(variant.getDiscountedPrice())
                             .attributes(
                                     variant.getVariantAttributeValues().stream()
                                             .map(vav -> VariantDto.AttributeDto.builder()
@@ -102,7 +99,7 @@ public class CartServiceImpl implements CartService {
                                                     .build())
                                             .toList()
                             )
-                            .availableStock(inventoryRepository.getAvailableStockByVariantId(variant.getId()))
+                            .availableStock(variant.getAvailableStock())
                             .build();
 
                     return CartItemDto.builder()

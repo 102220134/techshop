@@ -1,7 +1,7 @@
 package com.pbl6.services;
 
 import com.pbl6.dtos.request.auth.LoginRequest;
-import com.pbl6.dtos.response.LoginDto;
+import com.pbl6.dtos.response.auth.LoginDto;
 import com.pbl6.entities.UserEntity;
 
 public interface AuthService {

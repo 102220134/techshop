@@ -1,9 +1,7 @@
 package com.pbl6.services;
 
-import com.pbl6.dtos.request.auth.LoginRequest;
 import com.pbl6.dtos.request.auth.RegisterRequest;
 import com.pbl6.dtos.request.user.*;
-import com.pbl6.dtos.response.LoginDto;
 import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.user.UserAddressDto;
 import com.pbl6.dtos.user.UserDetailDto;

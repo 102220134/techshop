@@ -1,30 +1,36 @@
 package com.pbl6.services.impl;
 
-import com.pbl6.dtos.projection.ProductProjection;
 import com.pbl6.dtos.request.product.ProductFilterRequest;
 import com.pbl6.dtos.request.product.ProductSearchRequest;
-import com.pbl6.dtos.response.product.MediaDto;
 import com.pbl6.dtos.response.product.ProductDetailDto;
 import com.pbl6.dtos.response.product.ProductDto;
-import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.entities.CategoryEntity;
+import com.pbl6.entities.ProductEntity;
 import com.pbl6.entities.PromotionEntity;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
+import com.pbl6.mapper.MediaMapper;
 import com.pbl6.mapper.ProductMapper;
 import com.pbl6.mapper.PromotionMapper;
 import com.pbl6.repositories.ProductAttributeValueRepository;
 import com.pbl6.repositories.ProductRepository;
-import com.pbl6.repositories.ProductRepositoryCustom;
 import com.pbl6.repositories.WareHouseRepository;
 import com.pbl6.services.*;
+import com.pbl6.specifications.ProductSpecifications;
 import com.pbl6.utils.EntityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +39,6 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryService categoryService;
     private final WareHouseRepository wareHouseRepository;
     private final EntityUtil entityUtil;
-    private final ProductRepositoryCustom productRepositoryCustom;
     private final ProductMapper productMapper;
     private final VariantService variantService;
     private final MediaService mediaService;
@@ -41,17 +46,22 @@ public class ProductServiceImpl implements ProductService {
     private final PromotionMapper promotionMapper;
     private final ProductRepository productRepository;
     private final ProductAttributeValueRepository productAttributeValueRepository;
+    private final MediaMapper mediaMapper;
 
     // --------------------------------------------------------------
     // FEATURED PRODUCTS
     // --------------------------------------------------------------
     @Override
-    public List<ProductDto> getFeaturedProducts(String slugPath, int size) {
-        CategoryEntity category = categoryService.resolveBySlugPath(slugPath);
-        entityUtil.ensureActive(category, false);
-
-        List<ProductProjection> products = productRepositoryCustom.findAllByCategoryId(category.getId(), false, true);
-        List<ProductProjection> topProducts = products.stream()
+    public List<ProductDto> getFeaturedProducts(String slugPath, Integer size) {
+        size = size == null ? 20 : size;
+        CategoryEntity categoryEntity = categoryService.resolveBySlugPath(slugPath);
+        entityUtil.ensureActive(categoryEntity, false);
+        Specification<ProductEntity> spec = Specification
+                .where(ProductSpecifications.isActive(true))
+                .and(ProductSpecifications.byCategory(categoryEntity.getId()))
+                .and(ProductSpecifications.onlyInStock(true));
+        List<ProductEntity> allProducts = productRepository.findAll(spec);
+        List<ProductEntity> topProducts = allProducts.stream()
                 .filter(p -> p.getAvailableStock() > 0)
                 .sorted(Comparator.comparingDouble(this::calculateBaseScore).reversed())
                 .limit(size)
@@ -64,18 +74,18 @@ public class ProductServiceImpl implements ProductService {
     // BEST SELLER PRODUCTS
     // --------------------------------------------------------------
     @Override
-    public List<ProductDto> getBestSellerProducts(String slug, int size) {
-        CategoryEntity category = categoryService.resolveBySlugPath(slug);
-        entityUtil.ensureActive(category, false);
-
-        List<ProductProjection> products = productRepositoryCustom.findAllByCategoryId(category.getId(), false, true);
-        List<ProductProjection> topProducts = products.stream()
-                .filter(p -> p.getAvailableStock() > 0)
-                .sorted(Comparator.comparingInt(ProductProjection::getSold).reversed())
-                .limit(size)
-                .toList();
-
-        return applyPromotions(topProducts);
+    public List<ProductDto> getBestSellerProducts(String slug, Integer size) {
+        size = size == null ? 20 : size;
+        CategoryEntity categoryEntity = categoryService.resolveBySlugPath(slug);
+        entityUtil.ensureActive(categoryEntity, false);
+        Specification<ProductEntity> spec = Specification
+                .where(ProductSpecifications.isActive(true))
+                .and(ProductSpecifications.byCategory(categoryEntity.getId()))
+                .and(ProductSpecifications.onlyInStock(true));
+        Sort sort = Sort.by(Sort.Direction.DESC, mapSortField("sold"));
+        Pageable pageable = PageRequest.of(0, size, sort);
+        Page<ProductEntity> productEntityPage = productRepository.findAll(spec, pageable);
+        return applyPromotions(productEntityPage.getContent());
     }
 
     // --------------------------------------------------------------
@@ -85,11 +95,21 @@ public class ProductServiceImpl implements ProductService {
     public Page<ProductDto> filterProduct(String slugPath, ProductFilterRequest req, boolean includeInactive) {
         CategoryEntity categoryEntity = categoryService.resolveBySlugPath(slugPath);
         entityUtil.ensureActive(categoryEntity, false);
+        Specification<ProductEntity> spec = Specification
+                .where(ProductSpecifications.isActive(true))
+                .and(ProductSpecifications.byCategory(categoryEntity.getId()))
+                .and(ProductSpecifications.priceRange(req.getPrice_from(), req.getPrice_to()))
+                .and(ProductSpecifications.onlyInStock(true))
+                .and(ProductSpecifications.attributes(req.getFilter()));
 
-        Page<ProductProjection> projectionPage =
-                productRepositoryCustom.filterProducts(categoryEntity.getId(), req, includeInactive, true);
+        Sort sort = Sort.by(
+                "desc".equalsIgnoreCase(req.getDir()) ? Sort.Direction.DESC : Sort.Direction.ASC,
+                mapSortField(req.getOrder())
+        );
 
-        return applyPromotions(projectionPage);
+        Pageable pageable = PageRequest.of(req.getPage() - 1, req.getSize(), sort);
+        Page<ProductEntity> productEntityPage = productRepository.findAll(spec, pageable);
+        return applyPromotions(productEntityPage);
     }
 
     // --------------------------------------------------------------
@@ -97,10 +117,12 @@ public class ProductServiceImpl implements ProductService {
     // --------------------------------------------------------------
     @Override
     public Page<ProductDto> searchProduct(ProductSearchRequest req, boolean includeInactive) {
-        Page<ProductProjection> projectionPage =
-                productRepositoryCustom.searchProductByKeyword(req, includeInactive, true);
-//        return projectionPage.map(p -> ProductDto.builder().name(p.getName()).build());
-        return applyPromotions(projectionPage);
+        Specification<ProductEntity> spec = Specification
+                .where(ProductSpecifications.isActive(true))
+                .and(ProductSpecifications.keyword(req.getQ()));
+        Pageable pageable = PageRequest.of(req.getPage() - 1, req.getSize());
+        Page<ProductEntity> productsPage = productRepository.findAll(spec, pageable);
+        return applyPromotions(productsPage);
     }
 
     // --------------------------------------------------------------
@@ -108,107 +130,58 @@ public class ProductServiceImpl implements ProductService {
     // --------------------------------------------------------------
     @Override
     public ProductDetailDto getProductDetail(String slug, boolean includeInactive) {
-        ProductProjection projection = productRepositoryCustom.findBySlug(slug, includeInactive)
+        ProductEntity product = includeInactive
+                ? productRepository.findBySlug(slug)
+                .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND))
+                : productRepository.findBySlugAndIsActive(slug, true)
                 .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
 
         Map<Long, List<PromotionEntity>> promoMap =
-                promotionService.getActivePromotionsGroupedByProduct(List.of(projection.getId()));
-
-        List<PromotionEntity> promos = promoMap.getOrDefault(projection.getId(), List.of());
-
-        List<VariantDto> variants = variantService.getVariantsByProduct(projection.getId())
-                .stream()
-                .map(v -> {
-                    BigDecimal basePrice = v.price();
-                    BigDecimal specialPrice = promotionService.calculateFinalPrice(
-                            basePrice,
-                            promos
-                    );
-                    return VariantDto.builder()
-                            .id(v.id())
-                            .sku(v.sku())
-                            .thumbnail(v.thumbnail())
-                            .price(basePrice)
-                            .specialPrice(specialPrice)
-                            .attributes(v.attributes())
-                            .availableStock(v.availableStock())
-                            .build();
-                })
-                .toList();
-
-        List<MediaDto> medias = mediaService.findByProductId(projection.getId());
-
-        List<ProductDetailDto.SiblingDto> siblings = productRepository.findSiblingsByProductId(projection.getId())
-                .stream()
-                .map(product -> {
-                    // Lấy attribute option (nếu có)
-                    var optionAttrs = productAttributeValueRepository.findOptionAttributesByProductId(product.getId());
-
+                promotionService.getActivePromotionsGroupedByProduct(List.of(product.getId()));
+        List<ProductDetailDto.SiblingDto> siblings = product.getRelatedProducts().stream()
+                .map(productSibling -> {
+                    var optionAttrs = productAttributeValueRepository.findOptionAttributesByProductId(productSibling.getId());
                     String relatedName = optionAttrs.stream()
                             .filter(pav -> "version".equals(pav.getAttribute().getCode()))
-                            .findFirst() // trả về Optional<ProductAttributeValueEntity>
-                            .map(pav -> pav.getAttributeValue().getLabel()) // ánh xạ sang label
-                            .orElse(null); // nếu không có thì null
-
-
-
+                            .findFirst().map(pav -> pav.getAttributeValue().getLabel())
+                            .orElse(null);
                     return ProductDetailDto.SiblingDto.builder()
-                            .id(product.getId())
-                            .slug(product.getSlug())
-                            .name(product.getName())
+                            .id(productSibling.getId())
+                            .slug(productSibling.getSlug())
+                            .name(productSibling.getName())
                             .related_name(relatedName)
-                            .thumbnail(product.getThumbnail())
+                            .thumbnail(productSibling.getThumbnail())
                             .build();
-                })
-                .toList();
+                }).toList();
 
-        return ProductDetailDto.builder()
-                .id(projection.getId())
-                .name(projection.getName())
-                .description(projection.getDescription())
-                .slug(projection.getSlug())
-                .thumbnail(projection.getThumbnail())
-                .detail(projection.getDetail())
-                .isAvailable(projection.getAvailableStock() > 0)
-                .rating(new ProductDetailDto.RatingSummary(
-                        projection.getTotal() != null ? projection.getTotal() : 0L,
-                        projection.getAverage() != null ? projection.getAverage() : 0.0
-                ))
-                .variants(variants)
-                .medias(medias)
-                .promotions(promos.isEmpty() ? null : promos.stream().map(promotionMapper::toDto).toList())
-                .siblings(siblings)
-                .breadcrumb(categoryService.getBreadcrumbByProductSlug(projection.getSlug()))
-                .build();
+        ProductDetailDto productDetailDto = productMapper.toDetailDto(product, promoMap);
+        productDetailDto.setSiblings(siblings);
+        productDetailDto.setBreadcrumb(categoryService.getBreadcrumbByProductSlug(product.getSlug()));
+        return productDetailDto;
     }
+
 
     // --------------------------------------------------------------
     // SHARED PROMOTION LOGIC
     // --------------------------------------------------------------
 
-    private List<ProductDto> applyPromotions(List<ProductProjection> projections) {
-        if (projections.isEmpty()) return List.of();
-
-        List<Long> productIds = projections.stream().map(ProductProjection::getId).toList();
+    private List<ProductDto> applyPromotions(List<ProductEntity> productEntities) {
+        if (productEntities.isEmpty()) return List.of();
+        List<Long> productIds = productEntities.stream().map(ProductEntity::getId).toList();
         Map<Long, List<PromotionEntity>> promoMap = promotionService.getActivePromotionsGroupedByProduct(productIds);
-
-        return projections.stream()
+        return productEntities.stream()
                 .map(p -> {
                     List<PromotionEntity> promos = promoMap.getOrDefault(p.getId(), List.of());
-
-                    // ✅ Không tính lại, lấy giá sau giảm từ projection
                     BigDecimal discounted = p.getDiscountedPrice() != null
                             ? p.getDiscountedPrice()
                             : p.getPrice();
-
-                    return productMapper.toDto(p, discounted, promos);
+                    return productMapper.toDto(p, promos);
                 })
                 .toList();
     }
 
-
-    private Page<ProductDto> applyPromotions(Page<ProductProjection> page) {
-        List<Long> productIds = page.getContent().stream().map(ProductProjection::getId).toList();
+    private Page<ProductDto> applyPromotions(Page<ProductEntity> page) {
+        List<Long> productIds = page.getContent().stream().map(ProductEntity::getId).toList();
         Map<Long, List<PromotionEntity>> promoMap = promotionService.getActivePromotionsGroupedByProduct(productIds);
 
         return page.map(p -> {
@@ -218,15 +191,47 @@ public class ProductServiceImpl implements ProductService {
                     ? p.getDiscountedPrice()
                     : p.getPrice();
 
-            return productMapper.toDto(p, discounted, promos);
+            return productMapper.toDto(p, promos);
         });
     }
 
+    private double calculateBaseScore(ProductEntity p) {
+        // --- Dữ liệu đầu vào giả định: không null ---
+        double rating = p.getAverageRating();      // Đã có COALESCE() trong @Formula
+        long totalRating = p.getTotalRating();     // Đã có COALESCE()
+        int sold = p.getSold();                    // Đã có COALESCE()
+        int stock = p.getStock();                  // Đã có COALESCE()
+        int reserved = p.getReservedStock();       // Đã có COALESCE()
+        LocalDateTime createdAt = p.getCreatedAt(); // Được đảm bảo luôn có (vd. set khi insert)
 
+        // --- Tính toán các thành phần ---
+        double availableStock = Math.max(stock - reserved, 0);
+        double stockScore = availableStock > 0 ? 1 : 0; // Ưu tiên sản phẩm còn hàng
 
-    private double calculateBaseScore(ProductProjection p) {
-        double ratingScore = p.getTotal() != null ? p.getAverage() * 5 : 0;
-        double soldScore = p.getSold() != null ? p.getSold() * 0.5 : 0;
-        return ratingScore + soldScore;
+        // RatingScore: đánh giá cao + nhiều người đánh giá => điểm cao
+        double ratingScore = (rating / 5.0) * Math.log10(totalRating + 1) * 60; // max ~60
+
+        // SoldScore: bán càng nhiều => càng nổi bật
+        double soldScore = Math.log10(sold + 1) * 30; // max ~30
+
+        // RecencyScore: sản phẩm mới (<90 ngày) được cộng điểm nhẹ
+        long daysOld = java.time.Duration.between(createdAt, LocalDateTime.now()).toDays();
+        double recencyScore = (daysOld < 90) ? (30 - daysOld * 0.33) : 0; // max 30, giảm dần theo ngày
+
+        // --- Tổng hợp ---
+        return ratingScore + soldScore + recencyScore + (stockScore * 10);
     }
+
+
+    private String mapSortField(String field) {
+        return switch (field) {
+            case "price" -> "discountedPrice";
+            case "rating" -> "average";
+            case "createdAt" -> "createdAt";
+            case "sold" -> "sold";
+            default -> "id";
+        };
+    }
+
+
 }

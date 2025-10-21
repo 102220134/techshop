@@ -18,7 +18,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class ProductFilterRequest {
 
-        @Schema(allowableValues = {"id", "price", "create_at", "rating"})
+        @Schema(allowableValues = {"id", "price", "create_at", "rating", "sold"})
         private String order = "id";
         @Schema(allowableValues = {"asc", "desc"})
         private String dir = "asc";

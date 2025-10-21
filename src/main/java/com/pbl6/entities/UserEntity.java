@@ -53,8 +53,12 @@ public class UserEntity implements UserDetails {
     private Boolean isActive = true;
     private Boolean isGuest = false;
 
+    private Long storeId;
+    private Long warehouseId;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<UserAddressEntity> addresses;

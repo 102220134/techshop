@@ -60,12 +60,10 @@ public class OrderServiceImpl implements OrderService {
             store.setId(req.getStoreId());
         }
 
-        // 1️⃣ Tạo Order base
         OrderEntity order = orderMapper.toEntity(
                 UserEntity.builder().id(req.getUserId()).build(), req, store
         );
 
-        // 2️⃣ Lấy toàn bộ variantId → productId map
         Map<Long, VariantEntity> variantMap = variantRepository.findAllById(
                 req.getItems().stream().map(OrderItemRequest::getVariantId).toList()
         ).stream().collect(Collectors.toMap(VariantEntity::getId, v -> v));
@@ -75,11 +73,9 @@ public class OrderServiceImpl implements OrderService {
                 .distinct()
                 .toList();
 
-        // 3️⃣ Lấy toàn bộ promotions áp dụng theo product
         Map<Long, List<PromotionEntity>> promotionMap =
                 promotionService.getActivePromotionsGroupedByProduct(productIds);
 
-        // 4️⃣ Tính toán từng item
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItemEntity> orderItems = new ArrayList<>();
 
@@ -92,9 +88,9 @@ public class OrderServiceImpl implements OrderService {
             );
 
             BigDecimal basePrice = variant.getPrice();
-            BigDecimal finalPrice = promotionService.calculateFinalPrice(basePrice, promos);
+            BigDecimal discountPrice = variant.getDiscountedPrice();
 
-            BigDecimal lineTotal = finalPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            BigDecimal lineTotal = discountPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             totalAmount = totalAmount.add(lineTotal);
 
             orderItems.add(OrderItemEntity.builder()
@@ -104,12 +100,11 @@ public class OrderServiceImpl implements OrderService {
                     .sku(variant.getSku())
                     .price(basePrice)
                     .quantity(itemReq.getQuantity())
-                    .discountAmount(basePrice.subtract(finalPrice))
+                    .discountAmount(basePrice.subtract(discountPrice))
                     .promotions(promos)
                     .build());
         }
 
-        // 5️⃣ Cập nhật tổng tiền và lưu
         order.setTotalAmount(totalAmount);
         order = orderRepository.save(order);
         order.setOrderItems(orderItems);

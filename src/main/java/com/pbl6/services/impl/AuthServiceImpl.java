@@ -1,8 +1,11 @@
 package com.pbl6.services.impl;
 
 import com.pbl6.dtos.request.auth.LoginRequest;
-import com.pbl6.dtos.response.LoginDto;
+import com.pbl6.dtos.response.auth.LoginDto;
+import com.pbl6.dtos.response.auth.UserLogin;
+import com.pbl6.entities.PermissionEntity;
 import com.pbl6.entities.RefreshTokenEntity;
+import com.pbl6.entities.RoleEntity;
 import com.pbl6.entities.UserEntity;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
@@ -21,6 +24,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -153,6 +158,18 @@ public class AuthServiceImpl implements AuthService {
         loginResponse.setAccessToken(jwtUtil.generateToken(userEntity.getPhone()));
         String refreshToken = addRefreshToken(userEntity);
         loginResponse.setRefreshToken(refreshToken);
+
+        UserLogin userLogin = new UserLogin();
+        userLogin.setId(userEntity.getId());
+        userLogin.setName(userEntity.getName());
+        userLogin.setRoles(userEntity.getRoles().stream().map(RoleEntity::getName).toList());
+        userLogin.setPermissions(userEntity.getRoles().stream().flatMap(role->{
+            Set<String> permissions = role.getPermissions().stream()
+                    .map(PermissionEntity::getName)
+                    .collect(Collectors.toSet());
+            return permissions.stream();
+        }).toList());
+        loginResponse.setUserInfo(userLogin);
 
         return loginResponse;
     }

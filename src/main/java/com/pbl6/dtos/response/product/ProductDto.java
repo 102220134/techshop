@@ -20,11 +20,7 @@ public record ProductDto(
         int reserved_stock,
         int available_stock,
         List<PromotionDto> promotions,
-        RatingSummary rating,
-        @JsonIgnore
-        int sold,
-        @JsonIgnore
-        double score
+        RatingSummary rating
 ) {
     public record RatingSummary(
             long total,
