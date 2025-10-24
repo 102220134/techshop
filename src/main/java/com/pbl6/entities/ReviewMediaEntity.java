@@ -1,5 +1,6 @@
 package com.pbl6.entities;
 
+import com.pbl6.enums.MediaType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -15,15 +16,13 @@ public class ReviewMediaEntity {
     private Long id;
 
     @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="review_id", nullable=false,
-            foreignKey = @ForeignKey(name = "fk_review_media_review"))
+    @JoinColumn(name="review_id", nullable=false)
     private ReviewEntity review;
 
-    @Column(nullable=false, length=40) // 'image','video'
-    private String mediaType = "image";
+    @Enumerated(EnumType.STRING)
+    private MediaType mediaType;
 
     @Column(nullable=false, length=255)
     private String url;
 
-    private Integer sortOrder = 0;
 }

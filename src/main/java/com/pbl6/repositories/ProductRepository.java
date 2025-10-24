@@ -1,6 +1,8 @@
 package com.pbl6.repositories;
 
 import com.pbl6.entities.ProductEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -33,6 +35,16 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long>, J
 
     @EntityGraph(attributePaths = {"variants", "medias", "relatedProducts"})
     Optional<ProductEntity> findBySlugAndIsActive(String slug, boolean active);
+
+    @Query("""
+                SELECT p FROM UserEntity u
+                JOIN u.likedProducts p
+                WHERE u.id = :userId
+            """)
+    Page<ProductEntity> findLikedProductsByUserId(
+            @Param("userId") Long userId,
+            Pageable pageable
+    );
 
 
 }

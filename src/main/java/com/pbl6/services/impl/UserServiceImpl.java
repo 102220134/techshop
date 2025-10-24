@@ -38,10 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -69,7 +66,7 @@ public class UserServiceImpl implements UserService {
             RoleEntity roleEntity = roleRepository.findByName("CUSTOMER")
                     .orElseThrow(() -> {
                         log.error("Role {} not found during user creation.", "CUSTOMER");
-                        return new AppException(ErrorCode.DATA_NOT_FOUND);
+                        return new AppException(ErrorCode.INTERNAL_ERROR,"error role not found");
                     });
             newUser.setRoles(Set.of(roleEntity));
             newUser.setIsGuest(false);
@@ -82,7 +79,7 @@ public class UserServiceImpl implements UserService {
 
         if (!existingUser.getIsGuest()) {
             log.warn("User with phone: {} already exists and is not a guest. Throwing USER_EXISTED.", registerRequest.getPhone());
-            throw new AppException(ErrorCode.USER_EXISTED);
+            throw new AppException(ErrorCode.ALREADY_EXISTS,"phone exists");
         }
 
         existingUser.setName(registerRequest.getName());
@@ -110,7 +107,7 @@ public class UserServiceImpl implements UserService {
             UserEntity existingUser = userOptional.get();
             if (Boolean.FALSE.equals(existingUser.getIsActive())) {
                 log.warn("Attempt to create guest with inactive phone: {}", phone);
-                throw new AppException(ErrorCode.PHONE_LOCKED);
+                throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"Phone locked");
             }
             // If user is present and active, return it
             log.info("Existing active user found for phone: {}", phone);
@@ -121,7 +118,7 @@ public class UserServiceImpl implements UserService {
         RoleEntity roleEntity = roleRepository.findByName("CUSTOMER")
                 .orElseThrow(() -> {
                     log.error("Role {} not found during guest user creation.", "CUSTOMER");
-                    return new AppException(ErrorCode.DATA_NOT_FOUND);
+                    return new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"error role not found");
                 });
 
         UserEntity guest = UserEntity.builder()
@@ -137,32 +134,41 @@ public class UserServiceImpl implements UserService {
         return userRepository.save(guest);
     }
 
-
     @Override
     public UserDetailDto getUserInfo(Long userId) {
-
-        UserEntity targetUser = userRepository.findById(userId).orElseThrow(
-                () -> {
+        UserEntity targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> {
                     log.warn("User not found for userId: {}", userId);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
-                }
-        );
+                    return new AppException(ErrorCode.NOT_FOUND,"user not found");
+                });
 
         UserEntity currentUser = authenticationUtil.getCurrentUser();
 
-        if (currentUser.hasAuthority("USER_READ_ALL")) {
+        // ✅ Nếu là chính mình
+        if (Objects.equals(currentUser.getId(), userId)) {
             return userMapper.toUserDetailDto(targetUser);
         }
 
-        return userMapper.toUserDetailDto(targetUser);
+        // ✅ Nếu có quyền đọc khách hàng
+        if (currentUser.hasAuthority("USER_READ_CUSTOMER") && targetUser.isCustomer()) {
+            return userMapper.toUserDetailDto(targetUser);
+        }
+
+        // ✅ Nếu có quyền đọc nhân viên
+        if (currentUser.hasAuthority("USER_READ_STAFF") && targetUser.isStaff()) {
+            return userMapper.toUserDetailDto(targetUser);
+        }
+
+        throw new AppException(ErrorCode.FORBIDDEN);
     }
+
 
     @Override
     public UserDetailDto updateUserInfo(Long userId, UserUpdateInfoRequest request) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.error("Profile update failed: User not found for userId: {}", userId);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                    return  new AppException(ErrorCode.NOT_FOUND,"user not found");
                 });
 
         if (request.getName() != null) {
@@ -184,17 +190,17 @@ public class UserServiceImpl implements UserService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.error("Profile update failed: User not found for userId: {}", userId);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                    return new AppException(ErrorCode.NOT_FOUND,"user not found");
                 });
 
         List<String> newRoles = request.getRoles();
         if (newRoles == null || newRoles.isEmpty()) {
-            throw new AppException(ErrorCode.DATA_NOT_FOUND);
+            throw new AppException(ErrorCode.VALIDATION_ERROR,"not empty or null");
         }
         Set<RoleEntity> roleEntities = new HashSet<>();
         for (String roleEnum : newRoles) {
             RoleEntity role = roleRepository.findByName(roleEnum)
-                    .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
+                    .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR,"not match with role name"));
             roleEntities.add(role);
         }
 
@@ -207,7 +213,7 @@ public class UserServiceImpl implements UserService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.error("Status update failed: User not found for userId: {}", userId);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                    return new AppException(ErrorCode.NOT_FOUND,"User not found");
                 });
 
         user.setIsActive(request.getIsActive());
@@ -221,17 +227,17 @@ public class UserServiceImpl implements UserService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("Password change failed: User not found for userId: {}", userId);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                    return new AppException(ErrorCode.NOT_FOUND,"User not found");
                 });
 
         if (!passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
             log.warn("Password change failed for userId {}: Current password verification failed.", userId);
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS, " Current password verification failed.");
+            throw new AppException(ErrorCode.UNAUTHORIZED, " Current password verification failed.");
         }
 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
             log.warn("Password change failed for userId {}: New password and confirm password do not match.", userId);
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS, "New password and confirm password do not match");
+            throw new AppException(ErrorCode.UNAUTHORIZED, "New password and confirm password do not match");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
@@ -243,7 +249,7 @@ public class UserServiceImpl implements UserService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("Address creation failed: User not found for userId: {}", userId);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                    return new AppException(ErrorCode.NOT_FOUND,"User not found");
                 });
 
         UserAddressEntity newAddress = new UserAddressEntity();
@@ -284,13 +290,13 @@ public class UserServiceImpl implements UserService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("Address update failed: User not found for userId: {}", userId);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                    return new AppException(ErrorCode.NOT_FOUND,"user not found");
                 });
 
         UserAddressEntity addressToUpdate = userAddressRepository.findById(request.getId())
                 .orElseThrow(() -> {
                     log.warn("Address update failed: Address not found for addressId: {}", request.getId());
-                    return new AppException(ErrorCode.DATA_NOT_FOUND);
+                    return new AppException(ErrorCode.NOT_FOUND,"address not found");
                 });
 
         if (!addressToUpdate.getUser().getId().equals(userId)) {
@@ -342,7 +348,7 @@ public class UserServiceImpl implements UserService {
         var address = userAddressRepository.findById(addressId)
                 .orElseThrow(() -> {
                     log.warn("Address deletion failed: Address not found for addressId: {}", addressId);
-                    return new AppException(ErrorCode.DATA_NOT_FOUND);
+                    return new AppException(ErrorCode.NOT_FOUND,"address not found");
                 });
         if (!address.getUser().getId().equals(userId)) {
             log.warn("Address deletion failed: AddressId {} does not belong to userId {}", addressId, userId);
@@ -352,7 +358,7 @@ public class UserServiceImpl implements UserService {
         long totalAddressesCount = userAddressRepository.countByUser(address.getUser());
         if (totalAddressesCount == 1) {
             log.warn("Cannot delete addressId {} for userId {}: It is the only address.", addressId, userId);
-            throw new AppException(ErrorCode.CANNOT_DELETE_LAST_ADDRESS);
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"cant delete last address");
         }
 
         if (Boolean.TRUE.equals(address.getIsDefault())) {
@@ -403,7 +409,7 @@ public class UserServiceImpl implements UserService {
         UserEntity user = userRepository.findByPhone(phone)
                 .orElseThrow(() -> {
                     log.warn("User not found for phone: {}", phone);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                    return new AppException(ErrorCode.NOT_FOUND,"User not found");
                 });
         return userMapper.toUserDetailDto(user);
     }

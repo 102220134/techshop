@@ -37,7 +37,7 @@ public class ProductSerialServiceImpl implements ProductSerialService {
 
         if (serials.size() < orderItem.getQuantity()) {
             log.error("Product serial không đủ để giữ hàng");
-            throw new AppException(ErrorCode.OVERSELL_PRODUCT_SERIAL);
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"oversell");
         }
 
         ReservationEntity reservation = new ReservationEntity();

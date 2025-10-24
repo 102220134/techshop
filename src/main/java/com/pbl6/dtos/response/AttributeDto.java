@@ -4,7 +4,7 @@ import lombok.Builder;
 
 import java.util.List;
 @Builder
-public record FilterDto(
+public record AttributeDto(
         String code,
         String label,
         List<ValueDto> values

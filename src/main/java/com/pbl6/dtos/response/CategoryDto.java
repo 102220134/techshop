@@ -17,6 +17,7 @@ public class CategoryDto {
     private String categoryType;
     private String logo;
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     @Setter
     private BreadcrumbDto breadcrumb;
 

@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CategoryRepository extends JpaRepository<CategoryEntity, Long> {
-    Optional<CategoryEntity> findBySlugAndParentId(String slug, Long parentId);
+    Optional<CategoryEntity> findBySlugAndParentIdAndIsActiveTrue(String slug, Long parentId);
     List<CategoryEntity> findByParentId(Long parentId);
     List<CategoryEntity> findByParentIdAndCategoryType(Long parentId, String categoryType);
 }

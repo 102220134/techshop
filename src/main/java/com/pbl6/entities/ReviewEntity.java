@@ -30,26 +30,16 @@ public class ReviewEntity {
             foreignKey = @ForeignKey(name = "fk_reviews_product"))
     private ProductEntity product;
 
-    // unique per order item
-    @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name="order_item_id", nullable=false,
-            foreignKey = @ForeignKey(name = "fk_reviews_order_item"))
-    private OrderItemEntity orderItem;
-
     @Column(nullable=false)
     private Short rating; // 1..5
-
-    @Column(length=200)
-    private String title;
 
     @Column(columnDefinition="TEXT")
     private String content;
 
-    private Boolean isApproved = false;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "review", fetch = FetchType.LAZY)
-    private List<ReviewMediaEntity> mediaList;
+    private List<ReviewMediaEntity> medias;
 }

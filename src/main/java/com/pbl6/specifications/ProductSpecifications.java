@@ -10,8 +10,11 @@ import java.util.Map;
 
 public class ProductSpecifications {
 
-    public static Specification<ProductEntity> isActive(boolean includeInactive) {
-        return (root, query, cb) -> includeInactive ? cb.conjunction() : cb.isTrue(root.get("isActive"));
+    public static Specification<ProductEntity> isActive(Boolean isActive) {
+        return (root, query, cb) -> {
+            if (isActive == null) return cb.conjunction();
+            return cb.equal(root.get("isActive"), isActive);
+        };
     }
 
     public static Specification<ProductEntity> byCategory(Long categoryId) {

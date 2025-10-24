@@ -1,5 +1,6 @@
 package com.pbl6.entities;
 
+import com.pbl6.enums.MediaType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -21,9 +22,13 @@ public class MediaEntity {
     @JoinColumn(name="product_id", nullable=false)
     private ProductEntity product;
 
-    private String mediaType;
+    @Enumerated(EnumType.STRING)
+    private MediaType mediaType;
+
     private String url;
     private String altText;
     private Integer sortOrder = 0;
     private LocalDateTime createdAt;
+
+
 }

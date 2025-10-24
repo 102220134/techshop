@@ -19,7 +19,7 @@ public class AuthenticationUtil {
         }
         catch (Exception e){
             log.warn("Không thể lấy user từ SecurityContextHolder");
-            throw new AppException(ErrorCode.TOKEN_INVALID);
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
     }
     public UserEntity getCurrentUser() {
@@ -30,7 +30,7 @@ public class AuthenticationUtil {
         }
         catch (Exception e){
             log.warn("Không thể lấy user từ SecurityContextHolder");
-            throw new AppException(ErrorCode.TOKEN_INVALID);
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
     }
 }

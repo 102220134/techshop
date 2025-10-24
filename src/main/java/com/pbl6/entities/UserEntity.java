@@ -59,6 +59,13 @@ public class UserEntity implements UserDetails {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_product_likes",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "product_id")
+    )
+    private Set<ProductEntity> likedProducts;
 
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<UserAddressEntity> addresses;
@@ -143,6 +150,11 @@ public class UserEntity implements UserDetails {
     public boolean isCustomer() {
         return roles.stream()
                 .anyMatch(role -> role.equals("CUSTOMER"));
+    }
+
+    public boolean isStaff() {
+        return roles.stream()
+                .anyMatch(role -> role.getName().startsWith("STAFF_"));
     }
 
     public boolean hasAuthority(String authority) {

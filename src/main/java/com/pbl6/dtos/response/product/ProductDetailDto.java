@@ -61,10 +61,17 @@ public class ProductDetailDto {
 
     private BreadcrumbDto breadcrumb;
 
+    private boolean isActive;
+
     @AllArgsConstructor
     @Getter
     public static class RatingSummary {
         private long total;
+        private long star1;
+        private long star2;
+        private long star3;
+        private long star4;
+        private long star5;
         private double average;
     }
 

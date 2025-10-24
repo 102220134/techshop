@@ -8,8 +8,10 @@ import com.pbl6.dtos.request.user.UserAddressUpdateRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.order.OrderDto;
+import com.pbl6.dtos.response.product.ProductDto;
 import com.pbl6.dtos.user.UserAddressDto;
 import com.pbl6.dtos.user.UserDetailDto;
+import com.pbl6.services.LikeProductService;
 import com.pbl6.services.OrderService;
 import com.pbl6.services.UserService;
 import com.pbl6.utils.AuthenticationUtil;
@@ -29,6 +31,7 @@ public class CustomerController {
     private final AuthenticationUtil authenticationUtil;
     private final UserService userService;
     private final OrderService orderService;
+    private final LikeProductService likeProductService;
 
     @GetMapping("my-profile")
     @Operation(summary = "Lấy thong tin", security = { @SecurityRequirement(name = "bearerAuth") })
@@ -78,6 +81,15 @@ public class CustomerController {
     public ApiResponseDto<PageDto<OrderDto>> getOrderByUser(@ParameterObject MyOrderRequest request) {
         Long userId =  authenticationUtil.getCurrentUserId();
         return new ApiResponseDto<>(orderService.getOrderByUser(userId,request));
+    }
+
+    @GetMapping("my-liked")
+    @Operation(summary = "Sản phẩm yêu thích của tôi", security = { @SecurityRequirement(name = "bearerAuth") })
+    public ApiResponseDto<PageDto<ProductDto>> getLikedByUser(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        Long userId =  authenticationUtil.getCurrentUserId();
+        return new ApiResponseDto<>(likeProductService.getLikedByUser(userId,page,size));
     }
 
 }

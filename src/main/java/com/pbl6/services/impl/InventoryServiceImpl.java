@@ -75,7 +75,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public boolean isInStock(Long variantId, Integer quantity) {
         VariantEntity variant = variantRepository.findByIdAndIsActive(variantId, true).orElseThrow(
-                () -> new AppException(ErrorCode.PRODUCT_NOT_FOUND)
+                () -> new AppException(ErrorCode.NOT_FOUND,"product not found")
         );
         return variant.getAvailableStock() > 0;
     }
@@ -90,7 +90,7 @@ public class InventoryServiceImpl implements InventoryService {
             items.forEach(item -> {
                 InventoryEntity inv = inventoryRepository
                         .findByInventoryLocationIdAndVariantId(source.getId(), item.getVariant().getId())
-                        .orElseThrow(() -> new AppException(ErrorCode.STOCK_NOT_AVAILABLE));
+                        .orElseThrow(() -> new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"stock not available"));
                 reserveStock(inv, item, item.getQuantity());
             });
 
@@ -155,7 +155,7 @@ public class InventoryServiceImpl implements InventoryService {
                 remaining = fulfillFromSources(item, filterStores(sources), targetStore, remaining);
 
             if (remaining > 0)
-                throw new AppException(ErrorCode.STOCK_NOT_AVAILABLE);
+                throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"stock not available");
         }
     }
 
@@ -200,10 +200,10 @@ public class InventoryServiceImpl implements InventoryService {
     private void reserveFromInventory(InventoryLocationEntity location, OrderItemEntity item) {
         InventoryEntity inv = inventoryRepository
                 .findByInventoryLocationIdAndVariantId(location.getId(), item.getVariant().getId())
-                .orElseThrow(() -> new AppException(ErrorCode.STOCK_NOT_AVAILABLE));
+                .orElseThrow(() -> new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"stock not available"));
 
         if (inv.getAvailableStock() < item.getQuantity())
-            throw new AppException(ErrorCode.STOCK_NOT_AVAILABLE);
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"stock not available");
 
         reserveStock(inv, item, item.getQuantity());
     }

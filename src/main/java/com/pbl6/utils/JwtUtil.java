@@ -53,7 +53,7 @@ public class JwtUtil {
                     .parseSignedClaims(token)
                     .getPayload();
         } catch (Exception e) {
-            throw new AppException(ErrorCode.TOKEN_INVALID);
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
     }
 
@@ -61,7 +61,7 @@ public class JwtUtil {
         try {
             return extractAllClaims(token).getSubject();
         } catch (Exception e) {
-            throw new AppException(ErrorCode.TOKEN_INVALID);
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
     }
 

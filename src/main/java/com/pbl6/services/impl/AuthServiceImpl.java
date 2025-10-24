@@ -63,10 +63,10 @@ public class AuthServiceImpl implements AuthService {
     public LoginDto refreshToken(String oldRefreshToken) {
         try {
             RefreshTokenEntity refreshTokenEntityOld = refreshTokenRepository.findByToken(oldRefreshToken)
-                    .orElseThrow(() -> new AppException(ErrorCode.TOKEN_INVALID));
+                    .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
 
             if (refreshTokenEntityOld.getExpiresAt().isBefore(LocalDateTime.now()) || refreshTokenEntityOld.getIsRevoked()) {
-                throw new AppException(ErrorCode.TOKEN_INVALID);
+                throw new AppException(ErrorCode.UNAUTHORIZED);
             }
 
             String refreshToken = jwtUtil.generateRefreshTokenRaw();
@@ -90,7 +90,7 @@ public class AuthServiceImpl implements AuthService {
         } catch (AppException e) {
             throw e;
         } catch (Exception e) {
-            throw new AppException(ErrorCode.TOKEN_INVALID);
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
     }
 
@@ -98,13 +98,13 @@ public class AuthServiceImpl implements AuthService {
     public void resetPasswordAndSend(String email) {
         Optional<UserEntity> userOpt = userRepository.findByEmailAndIsActive(email,true);
         if (userOpt.isEmpty()) {
-            throw new AppException(ErrorCode.USER_NOT_FOUND,"Email không tồn tại");
+            throw new AppException(ErrorCode.NOT_FOUND,"Email không tồn tại");
         }
 
         UserEntity user = userOpt.get();
 
         if(user.getIsGuest()){
-            throw new AppException(ErrorCode.USER_NOT_FOUND,"Email không tồn tại");
+            throw new AppException(ErrorCode.NOT_FOUND,"Email không tồn tại");
         }
 
         // Tạo mật khẩu ngẫu nhiên
@@ -136,22 +136,22 @@ public class AuthServiceImpl implements AuthService {
         UserEntity userEntity = userRepository.findByPhone(loginRequest.getPhone())
                 .orElseThrow(() -> {
                     log.warn("Login failed: User not found for phone: {}", loginRequest.getPhone());
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
+                    return new AppException(ErrorCode.UNAUTHORIZED,"User not found");
                 });
 
         if (Boolean.TRUE.equals(userEntity.getIsGuest())) {
             log.warn("Login failed for phone: {}. User is a guest account.", loginRequest.getPhone());
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
+            throw new AppException(ErrorCode.UNAUTHORIZED,"User not found");
         }
 
         if (!Boolean.TRUE.equals(userEntity.getIsActive())) {
             log.warn("Login failed for phone: {}. User account is inactive.", loginRequest.getPhone());
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
         if (!passwordEncoder.matches(loginRequest.getPassword(), userEntity.getPassword())) {
             log.warn("Login failed for phone: {}. Invalid password.", loginRequest.getPhone());
-            throw new AppException(ErrorCode.INVALID_CREDENTIALS);
+            throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
         LoginDto loginResponse = new LoginDto();

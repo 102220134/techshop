@@ -26,6 +26,8 @@ public class ProductEntity implements Activatable {
     @Column(nullable=false, length=200)
     private String name;
 
+    private String relatedName;
+
     @Column(columnDefinition="TEXT")
     private String description;
 
@@ -52,6 +54,8 @@ public class ProductEntity implements Activatable {
     )
     private List<CategoryEntity> categories;
 
+
+
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY)
     private Set<MediaEntity> medias = new HashSet<>();
 
@@ -68,6 +72,9 @@ public class ProductEntity implements Activatable {
             inverseJoinColumns = @JoinColumn(name = "related_product_id") // cột liên kết
     )
     private Set<ProductEntity> relatedProducts = new HashSet<>();
+
+    @ManyToMany(mappedBy = "likedProducts", fetch = FetchType.LAZY)
+    private List<UserEntity> likedBys;
 
     // ✅ Nếu muốn truy ngược lại (đối xứng)
     @ManyToMany(mappedBy = "relatedProducts",fetch = FetchType.LAZY)
@@ -94,7 +101,36 @@ public class ProductEntity implements Activatable {
     @Formula("(SELECT COUNT(*) FROM reviews r WHERE r.product_id = id)")
     private Long totalRating;
 
-    public int getAvailableStock(){
+//    public BigDecimal getPrice() {
+//        return price != null ? price : BigDecimal.ZERO;
+//    }
+//
+//    public BigDecimal getDiscountedPrice() {
+//        return discountedPrice != null ? discountedPrice : BigDecimal.ZERO;
+//    }
+//
+//    public Integer getStock() {
+//        return stock != null ? stock : 0;
+//    }
+//
+//    public Integer getReservedStock() {
+//        return reservedStock != null ? reservedStock : 0;
+//    }
+//
+//    public Integer getSold() {
+//        return sold != null ? sold : 0;
+//    }
+//
+//    public Double getAverageRating() {
+//        return averageRating != null ? averageRating : 0.0;
+//    }
+//
+//    public Long getTotalRating() {
+//        return totalRating != null ? totalRating : 0L;
+//    }
+//
+    public Integer getAvailableStock() {
         return stock - reservedStock;
     }
+
 }

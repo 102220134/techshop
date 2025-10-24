@@ -14,10 +14,13 @@ import java.util.Optional;
 public class EntityUtil {
     public void ensureActive(Activatable entity, boolean includeInactive) {
         if (!includeInactive && !Boolean.TRUE.equals(entity.getIsActive())) {
-            throw new AppException(ErrorCode.DATA_NOT_FOUND);
+            throw new AppException(ErrorCode.NOT_FOUND);
         }
     }
     public <T> T ensureExists(Optional<T> optionalEntity) {
-        return optionalEntity.orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
+        return optionalEntity.orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND));
+    }
+    public <T> T ensureExists(Optional<T> optionalEntity,String message) {
+        return optionalEntity.orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND,message));
     }
 }

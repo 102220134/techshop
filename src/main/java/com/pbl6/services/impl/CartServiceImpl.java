@@ -40,7 +40,7 @@ public class CartServiceImpl implements CartService {
 
         if (variant.getAvailableStock() < request.getQuantity()) {
             log.error("Thêm vào giỏ hàng vượt quá số lượng hàng có sẵn");
-            throw new AppException(ErrorCode.STOCK_NOT_AVAILABLE);
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"stock not available");
         }
 
         CartItemEntity cartItem = cartItemRepository
@@ -109,6 +109,15 @@ public class CartServiceImpl implements CartService {
                             .build();
                 })
                 .toList();
+    }
+
+    @Override
+    public void deleteCartItem(Long userId, Long cartId) {
+        CartItemEntity cartItem = entityUtil.ensureExists(cartItemRepository.findById(cartId),"cart item not found");
+        if (!cartItem.getUser().getId().equals(userId)) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+        cartItemRepository.delete(cartItem);
     }
 
 }

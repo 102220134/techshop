@@ -156,14 +156,14 @@ public class OrderServiceImpl implements OrderService {
                         .orElseThrow(() -> {
                             log.error("Inventory not found for location ID {} and variant ID {} during order cancellation (order ID {}). This indicates a data inconsistency.",
                                     location.getId(), orderItem.getVariant().getId(), order.getId());
-                            return new AppException(ErrorCode.DATA_NOT_FOUND);
+                            return new AppException(ErrorCode.NOT_FOUND);
                         });
 
                 // Defensive check: reserved stock should be sufficient to unreserve
                 if (inventory.getReservedStock() < quantity) {
                     log.error("Data inconsistency: Attempted to unreserve {} units, but only {} units were reserved for inventory ID {} (order ID {}).",
                             quantity, inventory.getReservedStock(), inventory.getId(), order.getId());
-                    throw new AppException(ErrorCode.OVERSELL_PRODUCT_SERIAL);
+                    throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"Oversell");
                 }
 
                 inventory.unReservedStock(quantity);

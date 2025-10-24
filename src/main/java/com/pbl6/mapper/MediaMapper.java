@@ -2,6 +2,7 @@ package com.pbl6.mapper;
 
 import com.pbl6.dtos.response.product.MediaDto;
 import com.pbl6.entities.MediaEntity;
+import com.pbl6.entities.ReviewMediaEntity;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,6 +24,14 @@ public class MediaMapper {
                 .url(media.getUrl())
                 .mediaType(media.getMediaType())
                 .altText(media.getAltText())
+                .build();
+    }
+
+    public MediaDto toDto(ReviewMediaEntity media) {
+        return MediaDto.builder()
+                .id(media.getId())
+                .url(media.getUrl())
+                .mediaType(media.getMediaType())
                 .build();
     }
 }

@@ -2,8 +2,10 @@ package com.pbl6.controllers.publics;
 
 import com.pbl6.dtos.request.product.ProductFilterRequest;
 import com.pbl6.dtos.request.product.ProductSearchRequest;
+import com.pbl6.dtos.request.review.SearchReviewRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.PageDto;
+import com.pbl6.dtos.response.ReviewDto;
 import com.pbl6.dtos.response.product.ProductDetailDto;
 import com.pbl6.dtos.response.product.ProductDto;
 import com.pbl6.exceptions.AppException;
@@ -12,6 +14,7 @@ import com.pbl6.repositories.CategoryRepository;
 import com.pbl6.repositories.ProductRepository;
 import com.pbl6.repositories.VariantRepository;
 import com.pbl6.services.ProductService;
+import com.pbl6.services.ReviewService;
 import com.pbl6.utils.CloudinaryUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -27,13 +30,14 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/public/product")
 @Tag(name = "Sản phẩm (get public)")
-public class ProductController {
+public class PublicProductController {
 
     private final ProductService productService;
     private final CategoryRepository categoryRepository;
     private final CloudinaryUtil cloudinaryUtil;
     private final ProductRepository productRepository;
     private final VariantRepository variantRepository;
+    private final ReviewService reviewService;
 
     @GetMapping("/featured/{*cateSlug}")
     @Operation(summary = "Sản phẩm nổi bật")
@@ -53,8 +57,8 @@ public class ProductController {
 
     @GetMapping("/search")
     @Operation(summary = "Tìm kiếm theo keyword")
-    public ApiResponseDto<PageDto<ProductDto>> getFeaturedProducts(@ParameterObject ProductSearchRequest req) {
-        PageDto<ProductDto> products = new PageDto<>(productService.searchProduct(req,false));
+    public ApiResponseDto<PageDto<ProductDto>> searchProducts(@ParameterObject ProductSearchRequest req) {
+        PageDto<ProductDto> products = new PageDto<>(productService.searchProduct(req));
         ApiResponseDto<PageDto<ProductDto>> response = new ApiResponseDto<>();
         response.setData(products);
         return response;
@@ -77,7 +81,7 @@ public class ProductController {
     }
     @Operation(summary = "Lọc sản phẩm")
     @GetMapping("/filter/{*cateSlug}")
-    public ApiResponseDto<PageDto<ProductDto>> searchProducts(
+    public ApiResponseDto<PageDto<ProductDto>> filterProducts(
             @Schema(defaultValue = "mobile")
             @PathVariable String cateSlug,
             @ParameterObject ProductFilterRequest req,
@@ -106,7 +110,7 @@ public class ProductController {
 
         req.setFilter(filters);
         cateSlug = cateSlug.startsWith("/") ? cateSlug.substring(1) : cateSlug;
-        PageDto<ProductDto> products = new PageDto<>(productService.filterProduct(cateSlug, req, false));
+        PageDto<ProductDto> products = new PageDto<>(productService.filterProduct(cateSlug, req));
         ApiResponseDto<PageDto<ProductDto>> response = new ApiResponseDto<>();
         response.setData(products);
 
@@ -120,11 +124,19 @@ public class ProductController {
             @PathVariable String slug
     ) {
         slug = slug.startsWith("/") ? slug.substring(1) : slug;
-        ProductDetailDto product = productService.getProductDetail(slug, false);
+        ProductDetailDto product = productService.getProductDetail(slug);
         ApiResponseDto<ProductDetailDto> response = new ApiResponseDto<>();
         response.setData(product);
 
         return response;
+    }
+
+    @GetMapping("/review")
+    @Operation(summary = "List review")
+    public ApiResponseDto<PageDto<ReviewDto>> getListReviewByProductId(
+            @ParameterObject SearchReviewRequest req
+            ) {
+        return new ApiResponseDto<>(reviewService.searchReviews(req));
     }
 
 //    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

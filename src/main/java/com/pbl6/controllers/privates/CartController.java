@@ -41,6 +41,17 @@ public class CartController {
         return new ApiResponseDto<>(cartService.getCartItems(userId));
     }
 
+
+    @DeleteMapping("delete-item/{cartId}")
+    @Operation(summary = "Xoá sản phẩm trong giỏ  ", security = { @SecurityRequirement(name = "bearerAuth") })
+    public ApiResponseDto<?> deleteCartItems(
+            @PathVariable Long cartId
+    ) {
+        Long userId = getCurrentUserId();
+        cartService.deleteCartItem(userId,cartId);
+        return new ApiResponseDto<>();
+    }
+
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserEntity user = (UserEntity) authentication.getPrincipal();

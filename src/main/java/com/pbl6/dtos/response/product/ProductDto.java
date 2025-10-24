@@ -16,6 +16,7 @@ public record ProductDto(
         String thumbnail,
         BigDecimal price,
         BigDecimal special_price,
+        boolean isActive,
         int stock,
         int reserved_stock,
         int available_stock,
