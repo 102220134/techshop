@@ -6,7 +6,7 @@ import com.pbl6.dtos.request.auth.RegisterRequest;
 import com.pbl6.dtos.request.auth.ResetPasswordRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.auth.LoginDto;
-import com.pbl6.dtos.user.UserDto;
+import com.pbl6.dtos.response.user.UserDto;
 import com.pbl6.services.AuthService;
 import com.pbl6.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;

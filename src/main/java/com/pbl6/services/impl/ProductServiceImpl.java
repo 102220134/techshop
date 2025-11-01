@@ -4,7 +4,6 @@ import com.pbl6.dtos.request.product.*;
 import com.pbl6.dtos.response.product.ProductDetailDto;
 import com.pbl6.dtos.response.product.ProductDto;
 import com.pbl6.entities.*;
-import com.pbl6.enums.MediaType;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.mapper.MediaMapper;
@@ -190,7 +189,7 @@ public class ProductServiceImpl implements ProductService {
 
         // ✅ Thumbnail upload
         if (request.getThumbnail() != null && !request.getThumbnail().isEmpty()) {
-            String thumbnailUrl = cloudinaryUtil.uploadImage(request.getThumbnail(), request.getSlug());
+            String thumbnailUrl = cloudinaryUtil.uploadThumbnail(request.getThumbnail(), request.getSlug());
             product.setThumbnail(thumbnailUrl);
         }
 
@@ -240,7 +239,7 @@ public class ProductServiceImpl implements ProductService {
                         media.setProduct(product);
                         media.setMediaType(m.getType());
                         media.setSortOrder(m.getSortOrder());
-                        media.setUrl(cloudinaryUtil.uploadImage(m.getFile(), request.getSlug() + UUID.randomUUID()));
+                        media.setUrl(cloudinaryUtil.uploadThumbnail(m.getFile(), request.getSlug() + UUID.randomUUID()));
                         media.setCreatedAt(LocalDateTime.now());
                         mediaRepository.save(media);
                     }
@@ -304,7 +303,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         if (request.getThumbnail() != null && !request.getThumbnail().isEmpty()) {
-            String imageUrl = cloudinaryUtil.uploadImage(request.getThumbnail(),product.getSlug());
+            String imageUrl = cloudinaryUtil.uploadThumbnail(request.getThumbnail(),product.getSlug());
             product.setThumbnail(imageUrl);
         }
 

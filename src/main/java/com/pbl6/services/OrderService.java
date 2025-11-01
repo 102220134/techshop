@@ -1,16 +1,22 @@
 package com.pbl6.services;
 
-import com.pbl6.dtos.request.order.OrderRequest;
+import com.pbl6.dtos.request.order.CreateOrderRequest;
 import com.pbl6.dtos.request.order.MyOrderRequest;
+import com.pbl6.dtos.request.order.SearchOrderRequest;
 import com.pbl6.dtos.response.PageDto;
+import com.pbl6.dtos.response.order.OrderDetailDto;
+import com.pbl6.dtos.response.order.UserOrderDetailDto;
 import com.pbl6.dtos.response.order.OrderDto;
 import com.pbl6.entities.*;
-import com.pbl6.enums.OrderStatus;
 
 public interface OrderService {
-    void markOrderStatus(Long orderId,OrderStatus orderStatus);
-    OrderEntity createOrder(OrderRequest req);
+    OrderEntity createOrder(CreateOrderRequest req);
+    OrderEntity createOrderManual(CreateOrderRequest req);
     void cancelOrderPaymentTimeout();
-//    void cancelOrder(Long orderId);
     PageDto<OrderDto> getOrderByUser(Long userId, MyOrderRequest request);
+    PageDto<OrderDto> searchOrders(SearchOrderRequest req);
+    UserOrderDetailDto getOrderDetailByUser(Long orderId);
+    OrderDetailDto getOrderDetail(Long orderId);
+    void confirmOrder(Long orderId);
+    void cancelOrder(Long orderId);
 }

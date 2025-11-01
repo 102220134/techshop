@@ -1,25 +1,27 @@
 package com.pbl6.dtos.request.auth;
 
+import com.pbl6.utils.ValidationMessages;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 
 @Getter
+@Schema(description = "Request đăng nhập người dùng")
 public class LoginRequest {
 
+    @NotBlank(message = ValidationMessages.PHONE_REQUIRED)
     @Pattern(
             regexp = "^0[35789][0-9]{8}$",
-            message = "INVALID_PHONE_FORMAT"
+            message = ValidationMessages.PHONE_INVALID
     )
-
-    @NotBlank(message = "REQUIRED_FIELD_MISSING")
-    @NotNull(message = "REQUIRED_FIELD_MISSING")
+    @Schema(description = "Số điện thoại đăng nhập", example = "0976912052", requiredMode = Schema.RequiredMode.REQUIRED)
     private String phone;
 
-    @NotNull(message = "REQUIRED_FIELD_MISSING")
-    @Size(min = 6, message = "INVALID_PASSWORD_FORMAT")
+    @NotBlank(message = ValidationMessages.PASSWORD_REQUIRED)
+    @Size(min = 6, max = 50, message = ValidationMessages.PASSWORD_TOO_SHORT)
+    @Schema(description = "Mật khẩu đăng nhập", example = "123456789", requiredMode = Schema.RequiredMode.REQUIRED)
     private String password;
 
 }

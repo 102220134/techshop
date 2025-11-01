@@ -1,7 +1,7 @@
 package com.pbl6.mapper;
 
 import com.pbl6.dtos.request.checkout.CheckoutShipRequest;
-import com.pbl6.dtos.user.UserAddressDto;
+import com.pbl6.dtos.response.user.UserAddressDto;
 import com.pbl6.entities.UserAddressEntity;
 import org.springframework.stereotype.Component;
 

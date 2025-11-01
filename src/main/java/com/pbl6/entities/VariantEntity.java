@@ -60,8 +60,8 @@ public class VariantEntity implements Activatable {
     @OneToMany(mappedBy="variant", fetch=FetchType.LAZY)
     private List<VariantAttributeValueEntity> variantAttributeValues;
 
-    @OneToMany(mappedBy="variant", fetch=FetchType.LAZY)
-    private List<OrderItemEntity> orderItems;
+//    @OneToMany(mappedBy="variant", fetch=FetchType.LAZY)
+//    private List<OrderItemEntity> orderItems;
 
     @OneToMany(mappedBy="variant", fetch=FetchType.LAZY)
     private List<PurchaseOrderItemEntity> purchaseOrderItems;

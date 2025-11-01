@@ -9,16 +9,13 @@ import lombok.Getter;
 
 @Getter
 public enum PaymentMethod {
-    COD("cod", "Thanh toán khi nhận hàng"),
-    BANK("bank", "Chuyển khoản"),
-    VNPAY("vnpay", "Ví điện tử");
+    COD( "Thanh toán khi nhận hàng"),
+    BANK( "Chuyển khoản"),
+    VNPAY("Ví điện tử");
 
-    @JsonValue
-    private final String code;
     private final String label;
 
-    PaymentMethod(String code, String label) {
-        this.code = code;
+    PaymentMethod( String label) {
         this.label = label;
     }
 }

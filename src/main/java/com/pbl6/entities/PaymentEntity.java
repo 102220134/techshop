@@ -43,9 +43,6 @@ public class PaymentEntity {
     @Column(name="transaction_ref", length=120)
     private String transactionRef;
 
-    @Column(length=3)
-    private String currency = "VND";
-
     @Temporal(TemporalType.TIMESTAMP)
     private LocalDateTime paidAt;
 

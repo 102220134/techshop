@@ -1,6 +1,6 @@
 package com.pbl6.services.impl;
 
-import com.pbl6.dtos.response.WarehouseResponse;
+import com.pbl6.dtos.response.WarehouseDto;
 import com.pbl6.repositories.InventoryRepository;
 import com.pbl6.repositories.WareHouseRepository;
 import com.pbl6.services.WarehouseService;
@@ -16,9 +16,9 @@ public class WarehouseServiceImpl implements WarehouseService {
     private final InventoryRepository inventoryRepository;
 
     @Override
-    public List<WarehouseResponse> getAllWarehouses() {
+    public List<WarehouseDto> getAllWarehouses() {
         return warehouseRepository.findAll().stream().map(
-                wh-> new WarehouseResponse(wh.getId(),wh.getName())
+                wh-> new WarehouseDto(wh.getId(),wh.getName())
         ).toList();
     }
 }

@@ -1,8 +1,8 @@
 package com.pbl6.mapper;
 
 import com.pbl6.dtos.request.auth.RegisterRequest;
-import com.pbl6.dtos.user.UserDetailDto;
-import com.pbl6.dtos.user.UserDto;
+import com.pbl6.dtos.response.user.UserDetailDto;
+import com.pbl6.dtos.response.user.UserDto;
 import com.pbl6.entities.OrderEntity;
 import com.pbl6.entities.RoleEntity;
 import com.pbl6.entities.UserEntity;

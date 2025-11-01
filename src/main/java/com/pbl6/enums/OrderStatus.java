@@ -11,9 +11,10 @@ public enum OrderStatus {
 
     PENDING("pending","Chờ xử lý"),
     CONFIRMED("confirmed","Đã xác nhận"),
-    DELIVERING("delivered","Đã giao"),
-    COMPLETED("completed","Hoàn tất"),
-    CANCELLED("cancelled","Hủy"),
+    DELIVERING("delivered","Đang giao"),
+//    DELIVERING("delivered","Đang giao"),
+    COMPLETED("completed","Đã hoàn thành"),
+    CANCELLED("cancelled","Đã hủy"),
     REFUSED("refused","Từ chối"),
     RETURNED("returned","Trả hàng");
 

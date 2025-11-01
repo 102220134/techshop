@@ -91,6 +91,7 @@ public class UserEntity implements UserDetails {
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<ReviewEntity> reviews;
 
+
     @PrePersist
     public void prePersist() {
         LocalDateTime now = LocalDateTime.now();
@@ -156,6 +157,11 @@ public class UserEntity implements UserDetails {
         return roles.stream()
                 .anyMatch(role -> role.getName().startsWith("STAFF_"));
     }
+    public boolean isAdmin() {
+        return roles.stream()
+                .anyMatch(role -> role.equals("ADMIN"));
+    }
+
 
     public boolean hasAuthority(String authority) {
         return getAuthorities().stream()

@@ -32,4 +32,6 @@ public abstract class BaseCheckoutRequest {
     @NotNull(message = "REQUIRED_FIELD_MISSING")
     private PaymentMethod paymentMethod;
 
+    private String note;
+
 }

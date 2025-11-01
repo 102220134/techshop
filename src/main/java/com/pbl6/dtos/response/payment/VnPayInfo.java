@@ -2,6 +2,7 @@ package com.pbl6.dtos.response;
 
 import com.pbl6.dtos.response.payment.PaymentInfo;
 import com.pbl6.dtos.response.payment.PaymentInitResponse;
+import com.pbl6.enums.PaymentMethod;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,7 +18,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class VnPayInfo extends PaymentInfo {
-    private String type;
+    private PaymentMethod type;
     private String label;
     private String paymentUrl;
     private String transactionCode;

@@ -49,8 +49,9 @@ public class ReservationEntity {
     @OneToMany(mappedBy = "reservation",fetch = FetchType.LAZY)
     private List<ProductSerialEntity> productSerials;
 
-    @ManyToMany(mappedBy = "reservations",fetch = FetchType.LAZY) // Chỉ ra rằng mối quan hệ đã được định nghĩa ở InventoryTransferEntity
-    private Set<InventoryTransferEntity> transfers; // Một đặt chỗ có thể liên quan đến NHIỀU chuyển kho
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="transfer_id")
+    private InventoryTransferEntity transfer;
 
     // getters và setters
     // ...

@@ -1,6 +1,7 @@
 package com.pbl6.dtos.response.payment;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.pbl6.enums.PaymentMethod;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,7 +19,7 @@ import java.time.LocalTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class BankTransferInfo extends PaymentInfo {
-    private String type;
+    private PaymentMethod type;
     private String label;
     private String bankAccountNumber;
     private String bankAccountName;

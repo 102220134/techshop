@@ -2,6 +2,8 @@ package com.pbl6.services.impl;
 
 import com.pbl6.entities.*;
 import com.pbl6.enums.ProductSerialStatus;
+import com.pbl6.enums.ReceiveMethod;
+import com.pbl6.enums.ReservationStatus;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.repositories.ProductSerialRepository;
@@ -40,11 +42,25 @@ public class ProductSerialServiceImpl implements ProductSerialService {
             throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,"oversell");
         }
 
+        // ✅ Kiểm tra nếu là đơn PICKUP và location trùng với store location của order
+        OrderEntity order = orderItem.getOrder();
+        ReservationStatus reservationStatus = ReservationStatus.DRAFT; // mặc định
+
+        if (order.getReceiveMethod() == ReceiveMethod.PICKUP && order.getStore() != null) {
+            // tìm location của cửa hàng
+            InventoryLocationEntity storeLocation = order.getStore().getInventoryLocation();
+            if (storeLocation != null && storeLocation.getId().equals(location.getId())) {
+                // hàng đang ở đúng cửa hàng mà khách sẽ tới lấy
+                reservationStatus = ReservationStatus.AVAILABLE;
+            }
+        }
+
         ReservationEntity reservation = new ReservationEntity();
         reservation.setOrder(orderItem.getOrder());
         reservation.setOrderItem(orderItem);
         reservation.setQuantity(orderItem.getQuantity());
         reservation.setLocation(location);
+        reservation.setStatus(reservationStatus);
 
         ReservationEntity finalReservation = reservationRepository.save(reservation);
         List<ProductSerialEntity> updatedSerials = serials.stream()

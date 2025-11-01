@@ -1,8 +1,9 @@
 package com.pbl6.services.impl;
 
-import com.pbl6.dtos.request.SePayWebhookPayload;
+import com.pbl6.dtos.request.webhook.SePayWebhookPayload;
 import com.pbl6.dtos.request.checkout.PaymentRequest;
 import com.pbl6.dtos.response.payment.PaymentInitResponse;
+import com.pbl6.entities.OrderEntity;
 import com.pbl6.entities.PaymentEntity;
 import com.pbl6.enums.OrderStatus;
 import com.pbl6.enums.PaymentMethod;
@@ -71,7 +72,7 @@ public class PaymentServiceImpl implements PaymentService {
             case 0 -> { // ✅ Đúng số tiền
                 payment.setStatus(PaymentStatus.PAID);
                 paymentRepo.save(payment);
-                orderService.markOrderStatus(orderId, OrderStatus.CONFIRMED);
+                orderService.confirmOrder(orderId);
                 template.convertAndSend("/topic/"+orderId, payment.getStatus());
                 log.info("Payment success for order {}, amount={}", orderId, actualAmount);
                 return "payment success";
@@ -98,12 +99,12 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public PaymentInitResponse create(PaymentRequest req) {
-        PaymentMethod m = req.getPaymentMethod();
+    public PaymentInitResponse create(OrderEntity order) {
+        PaymentMethod m = order.getPaymentMethod();
         return switch (m) {
-            case COD -> cod.initiate(req);
-            case BANK -> bankTransfer.initiate(req);
-            case VNPAY -> vnPayPayment.initiate(req);
+            case COD -> cod.initiate(order);
+            case BANK -> bankTransfer.initiate(order);
+            case VNPAY -> vnPayPayment.initiate(order);
         };
     }
 

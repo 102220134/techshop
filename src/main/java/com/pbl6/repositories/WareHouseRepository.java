@@ -8,4 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface WareHouseRepository extends JpaRepository<WarehouseEntity,Long> {
+    Optional<WarehouseEntity> findWarehouseByInventoryLocationId(Long id);
 }

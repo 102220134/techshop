@@ -218,11 +218,11 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     private boolean isWarehouse(InventoryEntity i) {
-        return InventoryLocationType.WAREHOUSE.getCode().equals(i.getInventoryLocation().getType());
+        return InventoryLocationType.WAREHOUSE.equals(i.getInventoryLocation().getType());
     }
 
     private boolean isStore(InventoryEntity i) {
-        return InventoryLocationType.STORE.getCode().equals(i.getInventoryLocation().getType());
+        return InventoryLocationType.STORE.equals(i.getInventoryLocation().getType());
     }
 
     private List<InventoryEntity> filterWarehouses(List<InventoryEntity> list) {

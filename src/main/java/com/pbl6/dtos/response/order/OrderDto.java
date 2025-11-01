@@ -1,5 +1,8 @@
 package com.pbl6.dtos.response.order;
 
+import com.pbl6.enums.OrderStatus;
+import com.pbl6.enums.PaymentMethod;
+import com.pbl6.enums.ReceiveMethod;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,15 +18,11 @@ import java.util.List;
 @AllArgsConstructor
 public class OrderDto {
     private Long id;
-    private String status;
+    private OrderStatus status;
     private BigDecimal totalAmount;
-    private BigDecimal discountAmount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private String paymentMethod;
-    private String receiveMethod;
-    private String deliveryAddress;
-    private String receiverName;
-    private String receiverPhone;
+    private PaymentMethod paymentMethod;
+    private ReceiveMethod receiveMethod;
     private List<OrderItemDto> items;
 }

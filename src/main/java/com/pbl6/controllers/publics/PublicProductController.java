@@ -139,22 +139,4 @@ public class PublicProductController {
         return new ApiResponseDto<>(reviewService.searchReviews(req));
     }
 
-//    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-//    public ResponseEntity<?> upload(@ModelAttribute FileRequest request) throws Exception {
-//        Long id = request.getCategoryId();
-//        MultipartFile file = request.getFile();
-//
-//        var entity = variantRepository.findById(id)
-//                .orElseThrow(() -> new AppException(ErrorCode.DATA_NOT_FOUND));
-//
-//        // Upload Cloudinary thay vì local
-//        String uploadedUrl = cloudinaryUtil.uploadImage(file, entity.getSku());
-//
-//        // Lưu URL vào DB
-//        entity.setThumbnail(uploadedUrl);
-//        variantRepository.save(entity);
-//
-//        return ResponseEntity.ok(Map.of("url", uploadedUrl));
-//    }
-
 }

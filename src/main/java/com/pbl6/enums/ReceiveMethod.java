@@ -8,15 +8,12 @@ import lombok.Getter;
 
 @Getter
 public enum ReceiveMethod {
-    RECEIVE_AT_STORE("receive_at_store", "Nhận tại cửa hàng"),
-    SHIPMENT("shipment","Giao hàng tận nơi");
+    PICKUP( "Nhận tại cửa hàng"),
+    DELIVERY("Giao hàng tận nơi");
 
-    @JsonValue
-    private final String code;
     private final String label;
 
-    ReceiveMethod(String code, String label) {
-        this.code = code;
+    ReceiveMethod(String label) {
         this.label = label;
     }
 }

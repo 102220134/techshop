@@ -30,8 +30,13 @@ public class OrderItemEntity {
             foreignKey = @ForeignKey(name = "fk_oi_variant"))
     private VariantEntity variant;
 
+//    private Long variantId;
+
     @Column(nullable=false, length=200)
     private String productName;
+
+    @Column(nullable=false, length=200)
+    private String thumbnail;
 
     @ManyToMany
     @JoinTable(
@@ -54,12 +59,11 @@ public class OrderItemEntity {
     @Column(precision=15, scale=2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
-    public BigDecimal getSpecialPrice(){
-        return price.subtract(discountAmount);
-    }
+    @Column(precision=15, scale=2)
+    private BigDecimal finalPrice;
 
-    public BigDecimal getSubTotal(){
-        return getSpecialPrice().multiply(BigDecimal.valueOf(quantity));
-    }
+    @Column(precision=15, scale=2)
+    private BigDecimal subtotal;
+
 
 }

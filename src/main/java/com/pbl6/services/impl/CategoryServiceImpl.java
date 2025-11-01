@@ -98,7 +98,7 @@ public class CategoryServiceImpl implements CategoryService {
         if (request.getLogo() != null && !request.getLogo().isEmpty()) {
             MultipartFile file = request.getLogo();
             try{
-                logoUrl = cloudinaryUtil.uploadImage(file, request.getSlug());
+                logoUrl = cloudinaryUtil.uploadThumbnail(file, request.getSlug());
             }catch (Exception e){
                 throw new AppException(ErrorCode.EXTERNAL_SERVICE_ERROR,"Error upload logo");
             }
@@ -154,7 +154,7 @@ public class CategoryServiceImpl implements CategoryService {
             String logoUrl = category.getLogo();
             MultipartFile file = request.getLogo();
             try{
-                logoUrl = cloudinaryUtil.uploadImage(file, request.getSlug());
+                logoUrl = cloudinaryUtil.uploadThumbnail(file, request.getSlug());
             }catch (Exception e){
                 throw new AppException(ErrorCode.EXTERNAL_SERVICE_ERROR,"Error upload logo");
             }

@@ -1,5 +1,6 @@
 package com.pbl6.dtos.response.payment;
 
+import com.pbl6.enums.PaymentMethod;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,6 +12,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class CodInfo extends PaymentInfo{
-    private String type;
+    private PaymentMethod type;
     private String label;
 }

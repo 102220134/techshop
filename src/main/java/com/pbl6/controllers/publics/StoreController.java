@@ -2,11 +2,8 @@ package com.pbl6.controllers.publics;
 
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.StoreDto;
-import com.pbl6.dtos.response.WarehouseResponse;
 import com.pbl6.services.StoreService;
-import com.pbl6.services.WarehouseService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.persistence.Table;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

@@ -13,7 +13,7 @@ public record OrderItemDto(
         String sku,
         String thumbnail,
         BigDecimal price,
-        BigDecimal specialPrice,
+        BigDecimal finalPrice,
         int quantity,
         BigDecimal subtotal,
         List<VariantDto.AttributeDto> attributes

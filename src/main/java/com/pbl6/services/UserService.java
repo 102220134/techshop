@@ -3,9 +3,9 @@ package com.pbl6.services;
 import com.pbl6.dtos.request.auth.RegisterRequest;
 import com.pbl6.dtos.request.user.*;
 import com.pbl6.dtos.response.PageDto;
-import com.pbl6.dtos.user.UserAddressDto;
-import com.pbl6.dtos.user.UserDetailDto;
-import com.pbl6.dtos.user.UserDto;
+import com.pbl6.dtos.response.user.UserAddressDto;
+import com.pbl6.dtos.response.user.UserDetailDto;
+import com.pbl6.dtos.response.user.UserDto;
 import com.pbl6.entities.UserEntity;
 
 public interface UserService {

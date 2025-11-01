@@ -9,11 +9,11 @@ import java.util.Optional;
 public enum ReservationStatus {
 
     DRAFT("draft", "Bản nháp"),
-    ACTIVE("active", "Hoạt động"),
-    RELEASED("released", "Đã phát hành"),
-    CANCELLED("cancelled", "Đã hủy"),
-    FULFILLED("fulfilled", "Đã hoàn thành"),
-    EXPIRED("expired", "Đã hết hạn");
+    PENDING("pending","Chờ xác nhận"),
+    AVAILABLE("available", "Có sẵn"),
+    TRANSFER("transfer", "Vân chuyển"),
+    COMPLETED("completed", "Hoàn thành"),
+    CANCELLED("cancelled", "Đã hủy");
 
     private final String code;
     private final String label;

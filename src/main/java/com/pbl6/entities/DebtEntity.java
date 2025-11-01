@@ -1,5 +1,6 @@
 package com.pbl6.entities;
 
+import com.pbl6.enums.DebtStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -35,8 +36,8 @@ public class DebtEntity {
     @Column(nullable=false, precision=15, scale=2)
     private BigDecimal paidAmount = BigDecimal.ZERO;
 
-    @Column(nullable=false, length=40) // 'unpaid','partial','paid'
-    private String status = "unpaid";
+    @Enumerated(EnumType.STRING)
+    private DebtStatus status;
 
     private LocalDateTime dueDate;
 

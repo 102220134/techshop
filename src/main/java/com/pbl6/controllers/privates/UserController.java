@@ -1,28 +1,26 @@
 package com.pbl6.controllers.privates;
 
 import com.pbl6.dtos.request.auth.RegisterRequest;
-import com.pbl6.dtos.request.order.MyOrderRequest;
 import com.pbl6.dtos.request.user.SearchUserRequest;
 import com.pbl6.dtos.request.user.UserUpdateInfoRequest;
 import com.pbl6.dtos.request.user.UserUpdateRoleRequest;
 import com.pbl6.dtos.request.user.UserUpdateStatusRequest;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.PageDto;
-import com.pbl6.dtos.user.UserDetailDto;
-import com.pbl6.dtos.user.UserDto;
+import com.pbl6.dtos.response.user.UserDetailDto;
+import com.pbl6.dtos.response.user.UserDto;
 import com.pbl6.services.UserService;
 import com.pbl6.utils.AuthenticationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("api/user")
+@RequestMapping("api/private/user")
 @RequiredArgsConstructor
 @Tag(name = "Quản lý người dùng")
 public class UserController {
@@ -79,14 +77,5 @@ public class UserController {
         return new ApiResponseDto<>(userService.updateUserStatus(userId,request));
     }
 
-
-
-//    @PreAuthorize("hasAuthority('USER_DELETE')")
-//    @DeleteMapping("/delete/{userId}")
-//    @Operation(summary = "Xóa tài khoản user", security = { @SecurityRequirement(name = "bearerAuth") })
-//    public ApiResponseDto<?> deleteUser(@PathVariable Long userId) {
-//        userService.deleteUser(userId);
-//        return new ApiResponseDto<>();
-//    }
 
 }

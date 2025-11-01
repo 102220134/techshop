@@ -40,7 +40,16 @@ public class OrderEntity {
     private BigDecimal totalAmount;
 
     @Column(nullable=false, precision=15, scale=2)
-    private BigDecimal discountAmount = BigDecimal.ZERO;
+    private BigDecimal voucherDiscount = BigDecimal.ZERO;
+
+    @Column(nullable=false, precision=15, scale=2)
+    private BigDecimal paidAmount;
+
+    @Column(nullable=false, precision=15, scale=2)
+    private BigDecimal remainingAmount;
+
+    @Column(nullable=false, precision=15, scale=2)
+    private BigDecimal subtotal;
 
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
@@ -60,34 +69,18 @@ public class OrderEntity {
 
     private boolean isOnline;
 
-    // shipping address snapshot
-    @Column(nullable=false, length=120)
-    private String snapshotName;
-
-    @Column(nullable=false, length=20)
-    private String snapshotPhone;
-
-    @Column(nullable=false, length=200)
-    private String snapshotLine;
-
-    @Column(nullable=false, length=100)
-    private String snapshotWard;
-
-    @Column(nullable=false, length=100)
-    private String snapshotDistrict;
-
-    @Column(nullable=false, length=100)
-    private String snapshotProvince;
+    @Embedded
+    private AddressSnapshot snapshot; // 👈 dùng ở đây
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
-    private List<OrderItemEntity> items;
+    private Set<OrderItemEntity> items;
 
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
-    private List<PaymentEntity> payments;
+    private Set<PaymentEntity> payments;
 
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
     private List<DebtEntity> debts;
@@ -113,12 +106,6 @@ public class OrderEntity {
     @PreUpdate
     public void preUpdate() {
         updatedAt = LocalDateTime.now();
-    }
-
-    public String getDeliveryAddress(){
-        return java.util.stream.Stream.of(snapshotLine, snapshotWard, snapshotDistrict, snapshotProvince)
-                .filter(s -> s != null && !s.isBlank())
-                .collect(java.util.stream.Collectors.joining(", "));
     }
 
 }

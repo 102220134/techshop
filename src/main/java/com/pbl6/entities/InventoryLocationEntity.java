@@ -1,5 +1,6 @@
 package com.pbl6.entities;
 
+import com.pbl6.enums.InventoryLocationType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,7 +17,8 @@ public class InventoryLocationEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String type;  // WAREHOUSE, STORE
+    @Enumerated(EnumType.STRING)
+    InventoryLocationType type;
 
     @OneToMany(mappedBy = "inventoryLocation", fetch = FetchType.LAZY)
     private List<GoodsReceiptEntity> goodsReceipts;

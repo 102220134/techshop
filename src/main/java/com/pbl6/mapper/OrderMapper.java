@@ -1,53 +1,33 @@
 package com.pbl6.mapper;
 
-import com.pbl6.dtos.request.order.OrderRequest;
+import com.pbl6.dtos.response.order.OrderDetailDto;
+import com.pbl6.dtos.response.order.UserOrderDetailDto;
 import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.dtos.response.order.OrderDto;
 import com.pbl6.dtos.response.order.OrderItemDto;
 import com.pbl6.entities.*;
-import com.pbl6.enums.OrderStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
 public class OrderMapper {
-    public OrderEntity toEntity(UserEntity user, OrderRequest req, StoreEntity store) {
-        return OrderEntity.builder()
-                .user(user)
-                .store(store)
-                .receiveMethod(req.getReceiveMethod())
-                .paymentMethod(req.getPaymentMethod())
-                .discountAmount(BigDecimal.ZERO)
-                .status(OrderStatus.PENDING)
-                .snapshotName(req.getFullName())
-                .snapshotPhone(req.getPhone())
-                .snapshotLine(req.getLine())
-                .snapshotWard(req.getWard())
-                .snapshotDistrict(req.getDistrict())
-                .snapshotProvince(req.getProvince())
-                .isOnline(req.getIsOnline()==null? false: req.getIsOnline())
-                .build();
-    }
     public OrderDto toDto(OrderEntity order) {
         return OrderDto.builder()
                 .id(order.getId())
-                .status(order.getStatus().getLabel())
+                .status(order.getStatus())
                 .totalAmount(order.getTotalAmount())
-                .discountAmount(order.getDiscountAmount())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
-                .paymentMethod(order.getPaymentMethod().getLabel())
-                .receiveMethod(order.getReceiveMethod().getLabel())
-                .deliveryAddress(order.getDeliveryAddress())
-                .receiverName(order.getSnapshotName())
-                .receiverPhone(order.getSnapshotPhone())
+                .paymentMethod(order.getPaymentMethod())
+                .receiveMethod(order.getReceiveMethod())
                 .items(toOrderItemDtos(order.getItems()))
                 .build();
     }
-    private List<OrderItemDto> toOrderItemDtos(List<OrderItemEntity> items) {
+    private List<OrderItemDto> toOrderItemDtos(Set<OrderItemEntity> items) {
         if (items == null) return List.of();
         return items.stream().map(this::toOrderItemDto).collect(Collectors.toList());
     }
@@ -67,12 +47,85 @@ public class OrderMapper {
                 .sku(variant.getSku())
                 .thumbnail(variant.getThumbnail())
                 .price(variant.getPrice())
-                .specialPrice(item.getPrice())
+                .finalPrice(item.getFinalPrice())
                 .quantity(item.getQuantity())
-                .subtotal(item.getSubTotal())
+                .subtotal(item.getSubtotal())
                 .attributes((attrs))
                 .build();
     }
 
-}
+    public UserOrderDetailDto toUserOrderDetailDto(OrderEntity order){
+        BigDecimal grossAmount = order.getOrderItems().stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        BigDecimal directDiscount = order.getOrderItems().stream()
+                .map(item -> item.getDiscountAmount().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 4️⃣ Map ra OrderDetailDto
+        return UserOrderDetailDto.builder()
+                .id(order.getId())
+                .status(order.getStatus())
+                .grossAmount(grossAmount)
+                .directDiscount(directDiscount)
+                .voucherDiscount(order.getVoucherDiscount())
+                .totalAmount(order.getTotalAmount())
+                .paidAmount(order.getPaidAmount())
+                .remainingAmount(order.getTotalAmount())
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                .paymentMethod(order.getPaymentMethod())
+                .receiveMethod(order.getReceiveMethod())
+                .receiverName(order.getSnapshot().getName())
+                .receiverPhone(order.getSnapshot().getPhone())
+                .receiverAddress(
+                        switch (order.getReceiveMethod()) {
+                            case DELIVERY -> order.getSnapshot().getDeliveryAddress();
+                            case PICKUP -> order.getStore() != null
+                                    ? order.getStore().getDisplayAddress()
+                                    : "Tại cửa hàng";
+                        }
+                )
+                .items(toOrderItemDtos(order.getItems()))
+                .build();
+    }
+
+    public OrderDetailDto toOrderDetailDto(OrderEntity order){
+        BigDecimal grossAmount = order.getOrderItems().stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal directDiscount = order.getOrderItems().stream()
+                .map(item -> item.getDiscountAmount().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 4️⃣ Map ra OrderDetailDto
+        return OrderDetailDto.builder()
+                .id(order.getId())
+                .status(order.getStatus())
+                .grossAmount(grossAmount)
+                .directDiscount(directDiscount)
+                .voucherDiscount(order.getVoucherDiscount())
+                .totalAmount(order.getTotalAmount())
+                .paidAmount(order.getPaidAmount())
+                .remainingAmount(order.getTotalAmount())
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
+                .paymentMethod(order.getPaymentMethod())
+                .receiveMethod(order.getReceiveMethod())
+                .receiverName(order.getSnapshot().getName())
+                .receiverPhone(order.getSnapshot().getPhone())
+                .receiverAddress(
+                        switch (order.getReceiveMethod()) {
+                            case DELIVERY -> order.getSnapshot().getDeliveryAddress();
+                            case PICKUP -> order.getStore() != null
+                                    ? order.getStore().getDisplayAddress()
+                                    : "Tại cửa hàng";
+                        }
+                )
+                .items(toOrderItemDtos(order.getItems()))
+                .build();
+    }
+
+}

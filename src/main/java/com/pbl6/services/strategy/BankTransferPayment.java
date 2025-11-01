@@ -30,20 +30,21 @@ public class BankTransferPayment implements PaymentStrategy {
     private String webhookSecret;
 
     @Override
-    public PaymentInitResponse initiate(PaymentRequest req) {
+    public PaymentInitResponse initiate(OrderEntity order) {
         PaymentEntity p = PaymentEntity.builder()
-                .order(OrderEntity.builder().id(req.getOrderId()).build())
-                .amount(req.getTotalAmount())
+                .order(order)
+                .amount(order.getTotalAmount())
                 .method(PaymentMethod.BANK)
                 .status(PaymentStatus.PENDING)
-                .currency("VND")
+                .createdAt(LocalDateTime.now())
+                .provider("MBBank")
                 .build();
         p = paymentRepo.save(p);
 
         String bankNumber = "0976912051";
         String bankName = "MBBank";
-        BigDecimal amount = req.getTotalAmount();
-        String content = "PY1 " + req.getOrderId();
+        BigDecimal amount = order.getTotalAmount();
+        String content = "PY1 " + order.getId();
 
         String encodedContent = URLEncoder.encode(content, StandardCharsets.UTF_8);
 
@@ -56,12 +57,19 @@ public class BankTransferPayment implements PaymentStrategy {
         );
 
         return PaymentInitResponse.builder()
-                .orderId(req.getOrderId())
-                .amount(req.getTotalAmount())
+                .orderId(order.getId())
+                .grossAmount(order.getOrderItems().stream()
+                        .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .directDiscount(order.getOrderItems().stream()
+                        .map(item -> item.getDiscountAmount().multiply(BigDecimal.valueOf(item.getQuantity())))
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .voucherDiscount(order.getVoucherDiscount())
+                .totalAmount(order.getTotalAmount())
                 .message("Quét mã QR hoặc chuyển khoản theo thông tin trên")
                 .paymentInfo(BankTransferInfo.builder()
-                        .type(req.getPaymentMethod().getCode())
-                        .label(req.getPaymentMethod().getLabel())
+                        .type(order.getPaymentMethod())
+                        .label(order.getPaymentMethod().getLabel())
                         .bankAccountNumber(bankNumber)
                         .bankAccountName("Lê Anh Vũ")
                         .bankName(bankName)

@@ -48,7 +48,7 @@ public class SwaggerConfig {
     public GroupedOpenApi userManagerApi() {
         return GroupedOpenApi.builder()
                 .group("UserManager")
-                .pathsToMatch("/api/user/**")
+                .pathsToMatch("/api/private/user/**")
                 .displayName("UserManager APIs")
                 .build();
     }

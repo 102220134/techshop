@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("api/category")
+@RequestMapping("api/private/category")
 @RequiredArgsConstructor
 @Tag(name = "Quản lý danh mục")
 public class CategoryController {

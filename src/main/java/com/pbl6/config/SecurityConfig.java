@@ -54,6 +54,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST,"api/checkout/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
+
                         .anyRequest().authenticated()
                 );
         return http.build();
