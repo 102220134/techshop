@@ -5,11 +5,12 @@ import com.pbl6.entities.VariantEntity;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class VariantMapper {
 
-    public List<VariantDto> toDtoList(List<VariantEntity> variants) {
+    public List<VariantDto> toDtoList(Set<VariantEntity> variants) {
         if (variants == null) return List.of();
 
         return variants.stream()
