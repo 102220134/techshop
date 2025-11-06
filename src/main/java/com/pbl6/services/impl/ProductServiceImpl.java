@@ -129,6 +129,7 @@ public class ProductServiceImpl implements ProductService {
     public ProductDetailDto getProductDetail(String slug) {
         ProductEntity product = productRepository.findBySlugAndIsActive(slug, true)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Product not found"));
+        System.out.println(product.getVariants().size());
         return mapToDetail(product);
 
     }

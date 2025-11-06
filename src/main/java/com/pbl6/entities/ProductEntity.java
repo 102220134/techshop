@@ -44,7 +44,7 @@ public class ProductEntity implements Activatable {
     private LocalDateTime updatedAt;
 
     @OneToMany(mappedBy = "product", fetch = FetchType.LAZY)
-    private List<VariantEntity> variants;
+    private Set<VariantEntity> variants;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -74,11 +74,11 @@ public class ProductEntity implements Activatable {
     private Set<ProductEntity> relatedProducts = new HashSet<>();
 
     @ManyToMany(mappedBy = "likedProducts", fetch = FetchType.LAZY)
-    private List<UserEntity> likedBys;
+    private Set<UserEntity> likedBys;
 
     // ✅ Nếu muốn truy ngược lại (đối xứng)
     @ManyToMany(mappedBy = "relatedProducts",fetch = FetchType.LAZY)
-    private List<ProductEntity> relatedTo;
+    private Set<ProductEntity> relatedTo;
 
     @Formula("(SELECT MIN(v.price) FROM variants v WHERE v.product_id = id AND v.is_active = 1)")
     private BigDecimal price;
