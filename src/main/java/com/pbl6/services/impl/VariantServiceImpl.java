@@ -4,7 +4,6 @@ import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.entities.VariantEntity;
 import com.pbl6.repositories.VariantRepository;
 import com.pbl6.services.VariantService;
-import com.pbl6.services.WarehouseService;
 import com.pbl6.utils.EntityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

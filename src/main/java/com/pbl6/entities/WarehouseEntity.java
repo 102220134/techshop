@@ -29,4 +29,19 @@ public class WarehouseEntity {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    private Float latitude;
+    private Float longitude;
+
+
+    private String ward;
+    private String district;
+    private String province;
+    private String line;
+
+    public String getDisplayAddress() {
+        return java.util.stream.Stream.of(line, ward, district, province)
+                .filter(s -> s != null && !s.isBlank())
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
 }

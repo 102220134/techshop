@@ -31,6 +31,4 @@ public class SupplierEntity {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "supplier", fetch = FetchType.LAZY)
-    private List<PurchaseOrderEntity> purchaseOrders;
 }

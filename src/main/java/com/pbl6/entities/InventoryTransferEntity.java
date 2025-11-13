@@ -1,5 +1,6 @@
 package com.pbl6.entities;
 
+import com.pbl6.enums.TransferStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,7 +28,8 @@ public class InventoryTransferEntity {
     @JoinColumn(name = "destination_location_id")
     private InventoryLocationEntity destination;
 
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private TransferStatus status;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -44,6 +46,9 @@ public class InventoryTransferEntity {
         }
         updatedAt = now;
     }
+
+    @OneToMany(mappedBy = "transfer",fetch = FetchType.LAZY)
+    private List<InventoryTransferItemEntity> items;
 
     @PreUpdate
     public void preUpdate() {

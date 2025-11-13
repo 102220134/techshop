@@ -346,7 +346,7 @@ public class OrderServiceImpl implements OrderService {
                             .status(res.getStatus())
                             .transferStatus(
                                     res.getTransfer() == null
-                                            ? "N/A"
+                                            ? null
                                             : res.getTransfer().getStatus()
                             )
                             .build();
