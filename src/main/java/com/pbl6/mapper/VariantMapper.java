@@ -19,7 +19,7 @@ public class VariantMapper {
                 .toList();
     }
 
-    private VariantDto toDto(VariantEntity v) {
+    public VariantDto toDto(VariantEntity v) {
         return VariantDto.builder()
                 .id(v.getId())
                 .sku(v.getSku())
@@ -27,6 +27,7 @@ public class VariantMapper {
                 .price(v.getPrice())
                 .specialPrice(v.getDiscountedPrice())
                 .availableStock(v.getAvailableStock())
+                .stock(v.getStock())
                 .attributes(
                         v.getVariantAttributeValues().stream()
                                 .map(vav -> VariantDto.AttributeDto.builder()

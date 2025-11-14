@@ -13,7 +13,8 @@ public record VariantDto(
         BigDecimal price,
         BigDecimal specialPrice,
         List<AttributeDto> attributes,
-        int availableStock
+        int availableStock,
+        int stock
 ) {
     @Builder
     public record AttributeDto(

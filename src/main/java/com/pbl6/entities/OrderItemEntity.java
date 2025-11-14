@@ -25,7 +25,7 @@ public class OrderItemEntity {
     private OrderEntity order;
 
     // selected variant (RESTRICT in DB)
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name="variant_id", nullable=false,
             foreignKey = @ForeignKey(name = "fk_oi_variant"))
     private VariantEntity variant;

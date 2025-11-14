@@ -1,15 +1,23 @@
 package com.pbl6.services.impl;
 
+import com.pbl6.dtos.request.inventory.SearchInventoryRequest;
+import com.pbl6.dtos.response.PageDto;
+import com.pbl6.dtos.response.inventory.InventoryDto;
 import com.pbl6.entities.*;
 import com.pbl6.enums.InventoryLocationType;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
+import com.pbl6.mapper.VariantMapper;
 import com.pbl6.repositories.InventoryRepository;
 import com.pbl6.repositories.VariantRepository;
 import com.pbl6.services.InventoryService;
 import com.pbl6.services.ProductSerialService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +32,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final InventoryRepository inventoryRepository;
     private final ProductSerialService serialService;
     private final VariantRepository variantRepository;
+    private final VariantMapper variantMapper;
 
     /**
      * --------------------------
@@ -79,6 +88,51 @@ public class InventoryServiceImpl implements InventoryService {
         );
         return variant.getAvailableStock() > 0;
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageDto<InventoryDto> searchInventory(SearchInventoryRequest req) {
+        Sort sort = Sort.by(
+                req.getDir().equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC,
+                req.getOrder()
+        );
+        PageRequest pageable = PageRequest.of(req.getPage()-1, req.getSize(), sort);
+
+        Page<InventoryEntity> pageResult = inventoryRepository.searchInventory(
+                req.getLocationId(),
+                req.getCategoryId(),
+                req.getKeyword(),
+                pageable
+        );
+
+        // Gom nhóm theo productId
+        Map<Long, InventoryDto> inventoryDtoMap = new LinkedHashMap<>();
+
+        for (InventoryEntity inv : pageResult.getContent()) {
+            var variant = inv.getVariant();
+            var product = variant.getProduct();
+
+            InventoryDto inventoryDto = inventoryDtoMap.computeIfAbsent(product.getId(), k -> {
+                InventoryDto dto = new InventoryDto();
+                dto.setProductId(product.getId());
+                dto.setProductName(product.getName());
+                dto.setVariants(new ArrayList<>());
+                return dto;
+            });
+            inventoryDto.getVariants().add(variantMapper.toDto(variant));
+        }
+
+        // Tạo Page giả để wrap vào PageDto (vì PageDto yêu cầu Page<T>)
+        List<InventoryDto> groupedList = new ArrayList<>(inventoryDtoMap.values());
+        Page<InventoryDto> dtoPage = new PageImpl<>(
+                groupedList,
+                pageable,
+                pageResult.getTotalElements()
+        );
+
+        return new PageDto<>(dtoPage);
+    }
+
 
     /**
      * --------------------------

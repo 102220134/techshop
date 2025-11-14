@@ -40,6 +40,6 @@ public class OrderDetailDto {
         private InventoryLocationType type;
         private String address;
         private ReservationStatus status;
-        private String transferStatus;
+        private TransferStatus transferStatus;
     }
 }

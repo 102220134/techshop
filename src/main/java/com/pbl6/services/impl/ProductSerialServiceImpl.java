@@ -14,10 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -51,7 +48,7 @@ public class ProductSerialServiceImpl implements ProductSerialService {
             InventoryLocationEntity storeLocation = order.getStore().getInventoryLocation();
             if (storeLocation != null && storeLocation.getId().equals(location.getId())) {
                 // hàng đang ở đúng cửa hàng mà khách sẽ tới lấy
-                reservationStatus = ReservationStatus.AVAILABLE;
+                reservationStatus = ReservationStatus.READY_FOR_PICKUP;
             }
         }
 

@@ -40,6 +40,10 @@ public class ProductSerialEntity {
     @ManyToMany(mappedBy = "productSerials", fetch = FetchType.LAZY)
     private List<InventoryTransferItemEntity> transferItems;
 
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="goods_receipt_item_id")
+    private GoodsReceiptItemEntity goodsReceiptItem;
+
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
