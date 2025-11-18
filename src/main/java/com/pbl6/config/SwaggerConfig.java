@@ -43,7 +43,14 @@ public class SwaggerConfig {
                 .build();
     }
 
-    // ✅ Group 2: Public/User
+    @Bean
+    public GroupedOpenApi userDashboardApi() {
+        return GroupedOpenApi.builder()
+                .group("Dashboard")
+                .pathsToMatch("/api/private/dashboard/**")
+                .displayName("Dashboard APIs")
+                .build();
+    }
     @Bean
     public GroupedOpenApi userManagerApi() {
         return GroupedOpenApi.builder()

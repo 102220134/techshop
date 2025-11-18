@@ -53,6 +53,10 @@ public class ReservationEntity {
     @JoinColumn(name="transfer_id")
     private InventoryTransferEntity transfer;
 
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="delivery_id")
+    private DeliveryEntity delivery;
+
     // getters và setters
     // ...
 }

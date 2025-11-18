@@ -7,7 +7,7 @@ public enum ReservationStatus {
     DRAFT,
     PENDING,
     CONFIRMED,
-    READY_FOR_PICKUP,
+    AVAILABLE,
     TRANSFERRING,
     COMPLETED,
     CANCELLED

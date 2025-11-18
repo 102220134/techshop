@@ -8,6 +8,8 @@ import com.pbl6.dtos.response.inventory.transfer.TransferDto;
 import com.pbl6.dtos.response.inventory.transfer.TransferItemDto;
 import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.entities.*;
+import com.pbl6.enums.OrderStatus;
+import com.pbl6.enums.ReceiveMethod;
 import com.pbl6.enums.ReservationStatus;
 import com.pbl6.enums.TransferStatus;
 import com.pbl6.exceptions.AppException;
@@ -44,6 +46,7 @@ public class TransferServiceImpl implements TransferService {
     private final InventoryRepository inventoryRepository;
     private final StockMovementRepository stockMovementRepository;
     private final ReservationRepository reservationRepository;
+    private final OrderRepository orderRepository;
 
     @Override
     @Transactional
@@ -427,7 +430,7 @@ public class TransferServiceImpl implements TransferService {
         // --- D. CẬP NHẬT RESERVATION ---
         if (isReservationTransfer) {
             for (ReservationEntity res : linkedReservations) {
-                res.setStatus(ReservationStatus.READY_FOR_PICKUP); // mới đúng nghiệp vụ
+                res.setStatus(ReservationStatus.AVAILABLE); // mới đúng nghiệp vụ
                 res.setUpdatedAt(LocalDateTime.now());
             }
             reservationRepository.saveAll(linkedReservations);
@@ -514,6 +517,264 @@ public class TransferServiceImpl implements TransferService {
                                 .toList()
                 )
                 .build();
+    }
+    @Override
+    @Transactional
+    public void updateTransferStatus(Long transferId, TransferStatus newStatus) {
+        InventoryTransferEntity transfer = transferRepository.findById(transferId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Không tìm thấy phiếu chuyển"));
+
+        if (transfer.getStatus() == newStatus) {
+            log.warn("Transfer {} đã ở trạng thái {}. Bỏ qua.", transferId, newStatus);
+            return;
+        }
+
+        // Dùng switch-case để gọi hàm xử lý tương ứng
+        switch (newStatus) {
+            case CONFIRMED:
+                handleConfirm(transfer);
+                break;
+            case TRANSFERRING:
+                handleStartTransfer(transfer);
+                break;
+            case COMPLETED:
+                handleCompleteTransfer(transfer);
+                break;
+            case CANCELLED:
+                handleCancel(transfer);
+                break;
+            default:
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Trạng thái cập nhật không được hỗ trợ: " + newStatus);
+        }
+
+        // Cập nhật trạng thái và thời gian cuối cùng
+        transfer.setStatus(newStatus);
+        transfer.setUpdatedAt(LocalDateTime.now());
+        transferRepository.save(transfer);
+
+        // Tự động cập nhật Order mẹ (nếu có)
+        List<ReservationEntity> linkedReservations = reservationRepository.findByTransferId(transferId);
+        if (!linkedReservations.isEmpty()) {
+            OrderEntity order = linkedReservations.get(0).getOrder();
+            checkAndUpdateOrderStatus(order);
+        }
+    }
+
+    // ========================================================================
+    // CÁC HÀM XỬ LÝ LOGIC (HELPER)
+    // ========================================================================
+
+    /**
+     * Xử lý logic DRAFT -> CONFIRMED
+     */
+    private void handleConfirm(InventoryTransferEntity transfer) {
+        if (transfer.getStatus() != TransferStatus.DRAFT) {
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Chỉ được Confirm phiếu DRAFT");
+        }
+
+        List<ReservationEntity> linkedReservations = reservationRepository.findByTransferId(transfer.getId());
+        boolean isReservationTransfer = !linkedReservations.isEmpty();
+
+        List<String> allSerials = new ArrayList<>();
+        transfer.getItems().forEach(item ->
+                item.getProductSerials().forEach(s -> allSerials.add(s.getSerialNo()))
+        );
+
+        if (isReservationTransfer) {
+            // CASE A: TRANSFER TỪ ĐƠN HÀNG (Serial đã RESERVED)
+            long countReserved = productSerialRepository.countReservedSerials(allSerials, transfer.getSource().getId());
+            if (countReserved != allSerials.size()) {
+                throw new AppException(ErrorCode.INTERNAL_ERROR, "Lỗi đồng bộ: Serial không ở trạng thái RESERVED.");
+            }
+            // Cập nhật Reservation -> CONFIRMED
+            linkedReservations.forEach(res -> {
+                res.setStatus(ReservationStatus.CONFIRMED);
+                res.setUpdatedAt(LocalDateTime.now());
+            });
+            reservationRepository.saveAll(linkedReservations);
+
+        } else {
+            // CASE B: TRANSFER THỦ CÔNG (Serial đang IN_STOCK)
+            // 1. Tăng ReservedStock
+            for (InventoryTransferItemEntity item : transfer.getItems()) {
+                InventoryEntity inventory = inventoryRepository.findByInventoryLocationIdAndVariantId(transfer.getSource().getId(), item.getVariant().getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, "Sản phẩm không có trong kho nguồn"));
+                inventory.addReservedStock(item.getQuantity());
+                inventoryRepository.save(inventory);
+            }
+            // 2. Lock Serial
+            int updatedRows = productSerialRepository.reserveSerials(allSerials, transfer.getSource().getId());
+            if (updatedRows != allSerials.size()) {
+                throw new AppException(ErrorCode.INTERNAL_ERROR, "Xung đột: Một số sản phẩm đã bị lấy mất.");
+            }
+        }
+    }
+
+    /**
+     * Xử lý logic CONFIRMED -> TRANSFERRING
+     */
+    private void handleStartTransfer(InventoryTransferEntity transfer) {
+        if (transfer.getStatus() != TransferStatus.CONFIRMED) {
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Phiếu phải được CONFIRMED trước khi xuất kho");
+        }
+
+        for (InventoryTransferItemEntity item : transfer.getItems()) {
+            // 1. Trừ tồn kho (Stock & ReservedStock)
+            InventoryEntity inv = inventoryRepository.findByInventoryLocationIdAndVariantId(transfer.getSource().getId(), item.getVariant().getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, "Dữ liệu tồn kho bị lỗi"));
+            inv.setStock(inv.getStock() - item.getQuantity());
+            inv.setReservedStock(inv.getReservedStock() - item.getQuantity());
+            inventoryRepository.save(inv);
+
+            // 2. Ghi Movement
+            createMovement(transfer.getSource(), item.getVariant(), -item.getQuantity(), "TRANSFER_OUT", transfer.getId());
+
+            // 3. Update Serial: RESERVED -> IN_TRANSFER
+            List<String> serials = item.getProductSerials().stream()
+                    .map(ProductSerialEntity::getSerialNo).toList();
+
+            int updatedRows = productSerialRepository.updateSerialsForShipping(serials, transfer.getSource().getId());
+            if (updatedRows != serials.size()) {
+                log.warn("Lỗi khi xuất kho. Yêu cầu: {}, Thực tế: {}", serials.size(), updatedRows);
+                throw new AppException(ErrorCode.INTERNAL_ERROR, "Lỗi dữ liệu: Serial không ở trạng thái RESERVED.");
+            }
+        }
+
+        // 4. Cập nhật Reservation (Nếu có)
+        List<ReservationEntity> linkedReservations = reservationRepository.findByTransferId(transfer.getId());
+        if (!linkedReservations.isEmpty()) {
+            linkedReservations.forEach(res -> {
+                res.setStatus(ReservationStatus.TRANSFERRING);
+                res.setUpdatedAt(LocalDateTime.now());
+            });
+            reservationRepository.saveAll(linkedReservations);
+        }
+    }
+
+    /**
+     * Xử lý logic TRANSFERRING -> COMPLETED
+     */
+    private void handleCompleteTransfer(InventoryTransferEntity transfer) {
+        if (transfer.getStatus() != TransferStatus.TRANSFERRING) {
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Phiếu chưa được xuất đi (TRANSFERRING)");
+        }
+
+        List<ReservationEntity> linkedReservations = reservationRepository.findByTransferId(transfer.getId());
+        boolean isReservationTransfer = !linkedReservations.isEmpty();
+
+        for (InventoryTransferItemEntity item : transfer.getItems()) {
+            // 1. Cộng Tồn kho
+            InventoryEntity inv = inventoryRepository.findByInventoryLocationIdAndVariantId(transfer.getDestination().getId(), item.getVariant().getId())
+                    .orElseGet(() -> InventoryEntity.builder()
+                            .inventoryLocation(transfer.getDestination())
+                            .variant(item.getVariant())
+                            .build());
+            inv.setStock(inv.getStock() + item.getQuantity());
+            inventoryRepository.save(inv);
+
+            // 2. Ghi Movement
+            createMovement(transfer.getDestination(), item.getVariant(), item.getQuantity(), "TRANSFER_IN", transfer.getId());
+
+            // 3. Update Serial
+            List<String> serials = item.getProductSerials().stream()
+                    .map(ProductSerialEntity::getSerialNo).toList();
+
+            int updatedRows;
+            if (isReservationTransfer) {
+                // CASE A: Đơn hàng -> Hàng về kho cửa hàng (IN_TRANSFER -> RESERVED)
+                updatedRows = productSerialRepository.updateSerialsForStoreReservation(serials, transfer.getDestination());
+            } else {
+                // CASE B: Chuyển kho thủ công -> Hàng về kho (IN_TRANSFER -> IN_STOCK)
+                updatedRows = productSerialRepository.updateSerialsForReceiving(serials, transfer.getDestination());
+            }
+            if (updatedRows != serials.size()) {
+                log.warn("Lỗi khi nhập kho. Yêu cầu: {}, Thực tế: {}", serials.size(), updatedRows);
+                throw new AppException(ErrorCode.INTERNAL_ERROR, "Lỗi dữ liệu: Serial không ở trạng thái IN_TRANSFER.");
+            }
+        }
+
+        // 4. Cập nhật Reservation
+        if (isReservationTransfer) {
+            linkedReservations.forEach(res -> {
+                res.setStatus(ReservationStatus.AVAILABLE);
+                res.setUpdatedAt(LocalDateTime.now());
+            });
+            reservationRepository.saveAll(linkedReservations);
+        }
+    }
+
+    /**
+     * Xử lý logic -> CANCELLED (Chỉ từ DRAFT)
+     */
+    private void handleCancel(InventoryTransferEntity transfer) {
+        if (transfer.getStatus() != TransferStatus.DRAFT) {
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Chỉ được Hủy phiếu khi đang ở trạng thái DRAFT");
+        }
+
+        // (Logic giống hệt hàm deleteTransfer, nhưng không xóa)
+        List<ReservationEntity> linkedReservations = reservationRepository.findByTransferId(transfer.getId());
+        if (!linkedReservations.isEmpty()) {
+            for (ReservationEntity res : linkedReservations) {
+                res.setTransfer(null);
+                res.setStatus(ReservationStatus.PENDING); // Trả về PENDING
+                res.setUpdatedAt(LocalDateTime.now());
+            }
+            reservationRepository.saveAll(linkedReservations);
+        }
+    }
+
+
+    /**
+     * Kiểm tra và cập nhật trạng thái Order mẹ dựa trên các Reservation con.
+     */
+    private void checkAndUpdateOrderStatus(OrderEntity order) {
+        // Tải lại trạng thái mới nhất của Order và các Reservation của nó
+        OrderEntity freshOrder = orderRepository.findById(order.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Order not found during status check"));
+
+        List<ReservationEntity> allReservations = freshOrder.getReservations();
+        if (allReservations.isEmpty()) return;
+
+        boolean allReadyForPickup = true;
+        boolean anyTransferring = false;
+        boolean allCompletedOrCancelled = true;
+        boolean hasActiveItems = false; // Check xem có item nào PENDING/CONFIRMED/TRANSFERRING/READY
+
+        for (ReservationEntity res : allReservations) {
+            if (res.getStatus() == ReservationStatus.TRANSFERRING) {
+                anyTransferring = true;
+            }
+            if (res.getStatus() != ReservationStatus.AVAILABLE && res.getStatus() != ReservationStatus.CANCELLED) {
+                allReadyForPickup = false;
+            }
+            if (res.getStatus() != ReservationStatus.COMPLETED && res.getStatus() != ReservationStatus.CANCELLED) {
+                allCompletedOrCancelled = false;
+            }
+            if (res.getStatus() == ReservationStatus.PENDING || res.getStatus() == ReservationStatus.CONFIRMED ||
+                res.getStatus() == ReservationStatus.TRANSFERRING || res.getStatus() == ReservationStatus.AVAILABLE) {
+                hasActiveItems = true;
+            }
+        }
+
+        // Logic cập nhật trạng thái
+        if (anyTransferring) {
+            freshOrder.setStatus(OrderStatus.DELIVERING);
+            log.info("Order ID {} Cập nhật: DELIVERING (Đang vận chuyển)", freshOrder.getId());
+        }
+        else if (allReadyForPickup && order.getReceiveMethod() == ReceiveMethod.PICKUP) {
+            freshOrder.setStatus(OrderStatus.READY_FOR_PICKUP);
+            log.info("Order ID {} Cập nhật: READY_FOR_PICKUP (Sẵn sàng lấy hàng)", freshOrder.getId());
+        }
+        else if (!hasActiveItems && !allCompletedOrCancelled) {
+            // (Logic cũ của bạn có vẻ hơi xung đột, tôi sửa lại)
+            // Nếu TẤT CẢ đã COMPLETED hoặc CANCELLED
+            if(allCompletedOrCancelled){
+                freshOrder.setStatus(OrderStatus.COMPLETED);
+                log.info("Order ID {} Cập nhật: COMPLETED (Hoàn thành)", freshOrder.getId());
+            }
+        }
+
+        orderRepository.save(freshOrder);
     }
 }
 
