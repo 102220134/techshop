@@ -7,5 +7,6 @@ public enum TransferStatus {
     DRAFT,
     CONFIRMED,
     TRANSFERRING,
-    COMPLETED
+    COMPLETED,
+    CANCELLED
 }

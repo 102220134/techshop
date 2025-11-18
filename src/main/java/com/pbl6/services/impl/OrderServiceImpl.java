@@ -69,8 +69,8 @@ public class OrderServiceImpl implements OrderService {
         // Chuẩn bị store (nếu có)
         StoreEntity store = null;
         if (req.getStoreId() != null) {
-            store = new StoreEntity();
-            store.setId(req.getStoreId());
+            store = storeRepository.findById(req.getStoreId())
+                    .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Store not found"));
         }
 
         // Snapshot địa chỉ nhận hàng
@@ -391,6 +391,26 @@ public class OrderServiceImpl implements OrderService {
         }
 
         performOrderCancellation(order);
+    }
+
+    @Override
+    public void startDelivery(Long orderId) {
+
+    }
+
+    @Override
+    public void markAsDelivered(Long orderId) {
+
+    }
+
+    @Override
+    public void completeOrder(Long orderId) {
+
+    }
+
+    @Override
+    public void returnOrder(Long orderId) {
+
     }
 
     private void performOrderCancellation(OrderEntity order) {

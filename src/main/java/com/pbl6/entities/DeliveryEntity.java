@@ -20,9 +20,8 @@ public class DeliveryEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Quan hệ 1-1 với Order
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false, unique = true)
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="order_id", nullable=false)
     private OrderEntity order;
 
     // Tên hãng vận chuyển (GHTK, GHN...) - Nhập tay
@@ -41,17 +40,9 @@ public class DeliveryEntity {
     @Column(name = "cod_amount", precision = 15, scale = 2)
     private BigDecimal codAmount = BigDecimal.ZERO;
 
-    // Shipper nội bộ (Để NULL nếu dùng GHTK/ViettelPost)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shipper_id")
-    private UserEntity shipper;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DeliveryStatus status = DeliveryStatus.PENDING;
-
-    @Column(name = "proof_image")
-    private String proofImage;
 
     @Column(columnDefinition = "TEXT")
     private String note;

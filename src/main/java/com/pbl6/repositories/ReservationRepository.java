@@ -18,6 +18,9 @@ public interface ReservationRepository extends JpaRepository<ReservationEntity, 
     @EntityGraph(attributePaths = {"transfer"})
     List<ReservationEntity> findByOrderId(Long orderId);
 
+    @EntityGraph(attributePaths = {"transfer","delivery"})
+    List<ReservationEntity> findByIdIn(List<Long> orderIds);
+
     /**
      * Tìm kiếm Reservation kết hợp filter thông tin từ Order
      */
@@ -37,4 +40,5 @@ public interface ReservationRepository extends JpaRepository<ReservationEntity, 
             Pageable pageable
     );
     List<ReservationEntity> findByTransferId(Long transferId);
+    List<ReservationEntity> findByDeliveryId(Long deliveryId);
 }

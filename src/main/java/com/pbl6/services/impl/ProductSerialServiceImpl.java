@@ -6,6 +6,8 @@ import com.pbl6.enums.ReceiveMethod;
 import com.pbl6.enums.ReservationStatus;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
+import com.pbl6.repositories.InventoryLocationRepository;
+import com.pbl6.repositories.OrderRepository;
 import com.pbl6.repositories.ProductSerialRepository;
 import com.pbl6.repositories.ReservationRepository;
 import com.pbl6.services.ProductSerialService;
@@ -23,6 +25,8 @@ public class ProductSerialServiceImpl implements ProductSerialService {
 
     private final ProductSerialRepository serialRepository;
     private final ReservationRepository reservationRepository;
+    private final InventoryLocationRepository inventoryLocationRepository;
+    private final OrderRepository orderRepository;
 
     @Override
     @Transactional
@@ -48,7 +52,7 @@ public class ProductSerialServiceImpl implements ProductSerialService {
             InventoryLocationEntity storeLocation = order.getStore().getInventoryLocation();
             if (storeLocation != null && storeLocation.getId().equals(location.getId())) {
                 // hàng đang ở đúng cửa hàng mà khách sẽ tới lấy
-                reservationStatus = ReservationStatus.READY_FOR_PICKUP;
+                reservationStatus = ReservationStatus.AVAILABLE;
             }
         }
 
