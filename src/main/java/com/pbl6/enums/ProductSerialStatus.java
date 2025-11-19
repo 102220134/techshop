@@ -8,5 +8,6 @@ public enum ProductSerialStatus {
     PENDING,
     IN_STOCK,
     IN_TRANSFER,
-    RESERVED
+    RESERVED,
+    SOLD
 }

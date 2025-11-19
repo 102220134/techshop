@@ -11,6 +11,7 @@ import com.pbl6.dtos.response.inventory.transfer.TransferItemDto;
 import com.pbl6.entities.InventoryEntity;
 import com.pbl6.entities.InventoryLocationEntity;
 import com.pbl6.entities.OrderItemEntity;
+import com.pbl6.enums.TransferStatus;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -28,6 +29,7 @@ public interface TransferService {
     void startTransfer(Long transferId);
     void completeTransfer(Long transferId);
     public void deleteTransfer(Long transferId);
+    void updateTransferStatus(Long transferId, TransferStatus newStatus);
 
 //    TransferDto createDelivery(long id);
 }

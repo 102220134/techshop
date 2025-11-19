@@ -19,4 +19,12 @@ public interface OrderService {
     OrderDetailDto getOrderDetail(Long orderId);
     void confirmOrder(Long orderId);
     void cancelOrder(Long orderId);
+
+    void startDelivery(Long orderId);
+
+    void markAsDelivered(Long orderId);
+
+    void completeOrder(Long orderId);
+
+    void returnOrder(Long orderId);
 }

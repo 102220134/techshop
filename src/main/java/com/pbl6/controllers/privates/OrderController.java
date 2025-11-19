@@ -52,9 +52,13 @@ public class OrderController {
     ) {
         return new ApiResponseDto<>(orderService.getOrderDetail(orderId));
     }
+// ================================================================
+    // ===== CÁC ENDPOINT CẬP NHẬT TRẠNG THÁI (ĐÃ SỬA VÀ BỔ SUNG) =====
+    // ================================================================
+
     @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
     @PutMapping("/confirm/{orderId}")
-    @Operation(summary = "Xác nhận đơn hàng", security = { @SecurityRequirement(name = "bearerAuth")})
+    @Operation(summary = "Xác nhận đơn hàng (VD: PENDING -> CONFIRMED)", security = { @SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<String> confirmOrder(
             @PathVariable Long orderId
     ) {
@@ -63,12 +67,58 @@ public class OrderController {
     }
 
     @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
+    @PutMapping("/delivering/{orderId}")
+    @Operation(summary = "Cập nhật Đang Giao Hàng (CONFIRMED -> DELIVERING)", security = { @SecurityRequirement(name = "bearerAuth")})
+    public ApiResponseDto<String> startDelivery(
+            @PathVariable Long orderId
+    ) {
+        // Bạn cần implement logic này trong OrderService,
+        // nó sẽ gọi sang DeliveryService.updateDeliveryStatus(..., DELIVERING)
+        orderService.startDelivery(orderId);
+        return new ApiResponseDto<>("Order status updated to DELIVERING");
+    }
+
+    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
+    @PutMapping("/delivered/{orderId}")
+    @Operation(summary = "Cập nhật Đã Giao Hàng (DELIVERING -> DELIVERED)", security = { @SecurityRequirement(name = "bearerAuth")})
+    public ApiResponseDto<String> markAsDelivered(
+            @PathVariable Long orderId
+    ) {
+        // Tương tự, logic này trong OrderService sẽ gọi sang DeliveryService
+        orderService.markAsDelivered(orderId);
+        return new ApiResponseDto<>("Order status updated to DELIVERED");
+    }
+
+    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
+    @PutMapping("/complete/{orderId}")
+    @Operation(summary = "Hoàn thành đơn (DELIVERED -> COMPLETED)", security = { @SecurityRequirement(name = "bearerAuth")})
+    public ApiResponseDto<String> completeOrder(
+            @PathVariable Long orderId
+    ) {
+        // Thường dùng sau khi đã đối soát thanh toán/COD
+        orderService.completeOrder(orderId);
+        return new ApiResponseDto<>("Order completed successfully");
+    }
+
+    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
+    @PutMapping("/return/{orderId}")
+    @Operation(summary = "Đơn hàng bị trả (VD: FAILED -> RETURNED)", security = { @SecurityRequirement(name = "bearerAuth")})
+    public ApiResponseDto<String> returnOrder(
+            @PathVariable Long orderId
+    ) {
+        // Logic này sẽ gọi DeliveryService để hoàn kho
+        orderService.returnOrder(orderId);
+        return new ApiResponseDto<>("Order marked as RETURNED");
+    }
+
+    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
     @PutMapping("/cancel/{orderId}")
-    @Operation(summary = "Huỷ đơn hàng", security = { @SecurityRequirement(name = "bearerAuth")})
+    @Operation(summary = "Huỷ đơn hàng (VD: PENDING -> CANCELLED)", security = { @SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<String> cancelOrder(
             @PathVariable Long orderId
     ) {
         orderService.cancelOrder(orderId);
-        return new ApiResponseDto<>("Order confirmed successfully");
+        // FIX: Sửa lại nội dung response
+        return new ApiResponseDto<>("Order cancelled successfully");
     }
 }

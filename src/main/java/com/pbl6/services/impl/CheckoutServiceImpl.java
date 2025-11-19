@@ -87,7 +87,7 @@ public class CheckoutServiceImpl implements CheckoutService {
         createOrderRequest.setIsOnline(true);
         createOrderRequest.setNote(req.getNote());
         createOrderRequest.setPaymentMethod(req.getPaymentMethod());
-        createOrderRequest.setReceiveMethod(ReceiveMethod.DELIVERY);
+        createOrderRequest.setReceiveMethod(ReceiveMethod.PICKUP);
 
         createOrderRequest.setStoreId(store.getId());
 

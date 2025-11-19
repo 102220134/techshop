@@ -21,7 +21,7 @@ public class StoreEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch =  FetchType.EAGER)
     @JoinColumn(name = "location_id", nullable = false)
     InventoryLocationEntity inventoryLocation;
 

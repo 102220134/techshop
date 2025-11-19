@@ -8,21 +8,14 @@ import lombok.Getter;
 
 @Getter
 public enum OrderStatus {
+    PENDING,
+    CONFIRMED,
+    DELIVERING,
+    DELIVERED,
+    COMPLETED,
+    CANCELLED,
+    REFUSED,
+    READY_FOR_PICKUP,
+    RETURNED;
 
-    PENDING("pending","Chờ xử lý"),
-    CONFIRMED("confirmed","Đã xác nhận"),
-    DELIVERING("delivered","Đang giao"),
-//    DELIVERING("delivered","Đang giao"),
-    COMPLETED("completed","Đã hoàn thành"),
-    CANCELLED("cancelled","Đã hủy"),
-    REFUSED("refused","Từ chối"),
-    RETURNED("returned","Trả hàng");
-
-    private final String code;
-    private final String label;
-
-    OrderStatus(String code, String label) {
-        this.code = code;
-        this.label = label;
-    }
 }
