@@ -1,6 +1,8 @@
 package com.pbl6.filters;
 
+import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 
 import java.security.Principal;
@@ -9,14 +11,16 @@ import java.util.Map;
 public class CustomHandshakeHandler extends DefaultHandshakeHandler {
 
     @Override
-    protected Principal determineUser(
-            org.springframework.http.server.ServerHttpRequest request,
-            org.springframework.web.socket.WebSocketHandler wsHandler,
-            Map<String, Object> attributes) {
+    protected Principal determineUser(ServerHttpRequest req,
+                                      WebSocketHandler wsHandler,
+                                      Map<String, Object> attributes) {
 
-        String username = (String) attributes.get("username");
-        if (username == null) username = "anonymous";
-        String finalUsername = username;
-        return () -> finalUsername;
+        String principalName = (String) attributes.get("principal");
+
+        if (principalName == null) {
+            return null;
+        }
+        return ()-> principalName;
     }
 }
+

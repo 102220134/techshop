@@ -44,6 +44,15 @@ public class SwaggerConfig {
     }
 
     @Bean
+    public GroupedOpenApi productManagerApi() {
+        return GroupedOpenApi.builder()
+                .group("Product")
+                .pathsToMatch("/api/private/product/**")
+                .displayName("Product APIs")
+                .build();
+    }
+
+    @Bean
     public GroupedOpenApi userDashboardApi() {
         return GroupedOpenApi.builder()
                 .group("Dashboard")
