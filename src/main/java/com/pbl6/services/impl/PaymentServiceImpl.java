@@ -78,14 +78,14 @@ public class PaymentServiceImpl implements PaymentService {
                 return "payment success";
             }
             case -1 -> { // ⚠️ Thiếu tiền
-//                payment.setStatus("underpaid");
+                payment.setStatus(PaymentStatus.FAILED);
                 paymentRepo.save(payment);
                 log.warn("Underpaid: expected={} actual={}", expectedAmount, actualAmount);
                 template.convertAndSend("/topic/"+orderId, payment.getStatus());
                 return "underpaid";
             }
             case 1 -> { // ⚠️ Dư tiền
-//                payment.setStatus("overpaid");
+                payment.setStatus(PaymentStatus.FAILED);
                 paymentRepo.save(payment);
                 log.warn("Overpaid: expected={} actual={}", expectedAmount, actualAmount);
                 template.convertAndSend("/topic/"+orderId, payment.getStatus());
