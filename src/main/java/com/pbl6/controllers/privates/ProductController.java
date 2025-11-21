@@ -38,6 +38,16 @@ public class ProductController {
         return new ApiResponseDto<>(pageDto);
     }
 
+    @PreAuthorize("hasAuthority('PRODUCT_READ')")
+    @Operation(summary = "Chi tiết sản phẩm", security = { @SecurityRequirement(name = "bearerAuth")})
+    @GetMapping("/{productId}")
+    public ApiResponseDto<ProductDetailDto> getProductDetail(
+            @PathVariable Long productId
+    ) {
+
+        return new ApiResponseDto<>(productService.getProductDetail(productId));
+    }
+
     @PreAuthorize("hasAuthority('PRODUCT_CREATE')")
     @Operation(summary = "Thêm sản phẩm", security = { @SecurityRequirement(name = "bearerAuth")})
     @PostMapping(value  = "/create",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

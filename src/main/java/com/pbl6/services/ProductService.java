@@ -14,6 +14,7 @@ public interface ProductService {
     Page<ProductDto> filterProduct(String slugPath, ProductFilterRequest req);
     Page<ProductDto> searchProduct(ProductSearchRequest req);
     ProductDetailDto getProductDetail(String slug);
+    ProductDetailDto getProductDetail(Long id);
     Page<ProductDto> filterProducts(AdminSearchProductRequest req);
     ProductDetailDto createProduct(CreateProductRequest request);
     ProductDetailDto updateProduct(Long id, UpdateProductRequest request);
