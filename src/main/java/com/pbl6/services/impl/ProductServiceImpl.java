@@ -133,6 +133,13 @@ public class ProductServiceImpl implements ProductService {
 
     }
 
+    @Override
+    public ProductDetailDto getProductDetail(Long id) {
+        ProductEntity product = productRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Product not found"));
+        return mapToDetail(product);
+    }
+
 
     @Override
     public Page<ProductDto> filterProducts(AdminSearchProductRequest req) {
