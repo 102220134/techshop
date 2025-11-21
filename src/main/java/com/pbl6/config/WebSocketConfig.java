@@ -4,8 +4,10 @@ import com.pbl6.filters.CustomHandshakeHandler;
 import com.pbl6.filters.CustomerHandshakeInterceptor;
 import com.pbl6.filters.StaffHandshakeInterceptor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.*;
 
 @Configuration
@@ -42,9 +44,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         // Client gửi message qua prefix này
         registry.setApplicationDestinationPrefixes("/app");
-
         // Server gửi message xuống client qua các kênh này
-        registry.enableSimpleBroker("/topic", "/queue");
+        registry.enableSimpleBroker("/topic", "/queue")
+                        .setHeartbeatValue(new long[]{10000, 10000}) // 10s
+                        .setTaskScheduler(heartBeatScheduler());
         registry.setUserDestinationPrefix("/user");
+    }
+    @Bean
+    public ThreadPoolTaskScheduler heartBeatScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2); // <= số lượng thread
+        scheduler.setThreadNamePrefix("wss-heartbeat-");
+        scheduler.initialize();
+        return scheduler;
     }
 }
