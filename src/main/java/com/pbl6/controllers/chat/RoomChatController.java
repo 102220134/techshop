@@ -3,7 +3,9 @@ package com.pbl6.controllers.chat;
 import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.chat.RoomDto;
 import com.pbl6.services.RoomService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,6 +24,9 @@ public class RoomChatController {
     private final RoomService roomService;
 
     @PreAuthorize("hasAuthority('CHAT')")
+    @Operation(
+            security = {@SecurityRequirement(name = "bearerAuth")}
+    )
     @GetMapping
     public ApiResponseDto<?> getAllRooms(
             @RequestParam(required = false,defaultValue = "1") int page,
