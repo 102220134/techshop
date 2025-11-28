@@ -11,11 +11,6 @@ public enum OrderStatus {
     PENDING,
     CONFIRMED,
     DELIVERING,
-    DELIVERED,
     COMPLETED,
     CANCELLED,
-    REFUSED,
-    READY_FOR_PICKUP,
-    RETURNED;
-
 }

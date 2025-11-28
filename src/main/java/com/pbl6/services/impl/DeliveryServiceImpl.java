@@ -1,4 +1,5 @@
 package com.pbl6.services.impl;
+
 import com.pbl6.dtos.request.inventory.delivery.UpdateTrackingRequest;
 import com.pbl6.dtos.response.inventory.delivery.DeliveryDto;
 import com.pbl6.entities.*;
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -28,147 +30,60 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final InventoryRepository inventoryRepository;
     private final StockMovementRepository stockMovementRepository;
     private final OrderRepository orderRepository;
+    private final PaymentRepository paymentRepository;
+    private final DebtRepository debtRepository;
 
-    /**
-     * TÁI CẤU TRÚC: Tạo 1 Vận đơn (Delivery) từ 1 hoặc NHIỀU Reservation
-     * Dùng để gom các món hàng (từ cùng 1 kho) vào 1 gói hàng để giao.
-     */
     @Override
     @Transactional
     public DeliveryDto createDelivery(List<Long> reservationIds) {
         if (reservationIds == null || reservationIds.isEmpty()) {
-            throw new AppException(ErrorCode.VALIDATION_ERROR, "Phải chọn ít nhất 1 yêu cầu để tạo vận đơn");
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Danh sách yêu cầu tạo vận đơn không được trống");
         }
 
-        // 1. Lấy và kiểm tra thông tin chung
         List<ReservationEntity> reservations = reservationRepository.findAllById(reservationIds);
-        if (reservations.isEmpty() || reservations.size() != reservationIds.size()) {
-            throw new AppException(ErrorCode.NOT_FOUND, "Một số yêu cầu (Reservation) không tồn tại.");
+        if (reservations.size() != reservationIds.size()) {
+            throw new AppException(ErrorCode.NOT_FOUND, "Một số yêu cầu giữ hàng không tồn tại");
         }
 
-        // 2. Validate Logic
         validateReservationsForDelivery(reservations);
+
         OrderEntity order = reservations.get(0).getOrder();
-        InventoryLocationEntity location = reservations.get(0).getLocation();
+        BigDecimal codAmount = calculateCodForDelivery(order, reservations);
 
-        // 3. Tính toán COD Pro-rata (Chia tỷ lệ)
-        BigDecimal codAmountForThisDelivery = calculateCodForDelivery(order, reservations);
-
-        // 4. Tạo Vận đơn (Delivery Entity)
         DeliveryEntity delivery = new DeliveryEntity();
         delivery.setOrder(order);
-        delivery.setCarrierName("Manual/External"); // Mặc định
-        delivery.setTrackingCode("WAITING_UPDATE_" + order.getId() + "_" + System.currentTimeMillis()); // Mã tạm
-        delivery.setShippingFee(BigDecimal.ZERO); // Sẽ cập nhật sau
-        delivery.setCodAmount(codAmountForThisDelivery); // Tiền COD đã chia tỷ lệ
+        delivery.setCarrierName("Manual/External");
+        delivery.setTrackingCode("WAITING_" + order.getId() + "_" + System.currentTimeMillis());
+        delivery.setShippingFee(BigDecimal.ZERO);
+        delivery.setCodAmount(codAmount);
         delivery.setStatus(DeliveryStatus.PENDING);
+
         delivery = deliveryRepository.save(delivery);
 
-        // 5. Xử lý kho và cập nhật các Reservation
         for (ReservationEntity res : reservations) {
-            // 5a. Update Inventory: Tăng ReservedStock (Hàng được giữ)
-//            updateInventoryReserve(location, res.getOrderItem().getVariant(), res.getQuantity(), true);
-
-            // 5b. Update Serial: (Đã là RESERVED từ lúc tạo đơn, không cần làm lại)
-            // Chúng ta chỉ cần đảm bảo chúng không bị ai cướp mất
-            long serialCount = res.getProductSerials().stream()
-                    .filter(s -> s.getStatus() == ProductSerialStatus.RESERVED)
-                    .count();
-            if (serialCount != res.getQuantity()) {
-                log.error("Lỗi dữ liệu: Serial của Reservation {} không ở trạng thái RESERVED.", res.getId());
-                throw new AppException(ErrorCode.INTERNAL_ERROR, "Lỗi đồng bộ, serial đã bị thay đổi trạng thái.");
-            }
-
-            // 5c. Update Reservation (Link Delivery và Cập nhật Status)
-            res.setStatus(ReservationStatus.CONFIRMED); // Chuyển từ PENDING -> CONFIRMED (đã gán vào vận đơn)
+            validateSerialStatus(res);
+            res.setStatus(ReservationStatus.CONFIRMED);
             res.setDelivery(delivery);
             res.setUpdatedAt(LocalDateTime.now());
         }
 
         reservationRepository.saveAll(reservations);
-
         return toDto(delivery);
     }
 
-    /**
-     * Kiểm tra các điều kiện để gom nhiều Reservation vào 1 Delivery
-     */
-    private void validateReservationsForDelivery(List<ReservationEntity> reservations) {
-        Long firstOrderId = reservations.get(0).getOrder().getId();
-        Long firstLocationId = reservations.get(0).getLocation().getId();
-
-        for (ReservationEntity res : reservations) {
-            // Check 1: Phải đang chờ (PENDING)
-            if (res.getStatus() != ReservationStatus.PENDING) {
-                throw new AppException(ErrorCode.VALIDATION_ERROR, "Yêu cầu " + res.getId() + " đã được xử lý.");
-            }
-            // Check 2: Phải cùng 1 Order
-            if (!res.getOrder().getId().equals(firstOrderId)) {
-                throw new AppException(ErrorCode.VALIDATION_ERROR, "Các yêu cầu phải thuộc cùng 1 đơn hàng.");
-            }
-            // Check 3: Phải cùng 1 Kho Nguồn
-            if (!res.getLocation().getId().equals(firstLocationId)) {
-                throw new AppException(ErrorCode.VALIDATION_ERROR, "Các yêu cầu phải xuất phát từ cùng 1 kho.");
-            }
-            // Check 4: Phải là đơn Giao Hàng (Không phải Nhận tại quầy)
-            if (res.getOrder().getReceiveMethod() == ReceiveMethod.PICKUP) {
-                throw new AppException(ErrorCode.VALIDATION_ERROR, "Đây là đơn nhận tại quầy, không thể tạo vận đơn giao hàng.");
-            }
-        }
-    }
-
-    /**
-     * Tính toán COD tỷ lệ cho các món hàng trong vận đơn này.
-     */
-    private BigDecimal calculateCodForDelivery(OrderEntity order, List<ReservationEntity> reservations) {
-        // Nếu khách thanh toán online (không phải COD), thì tiền thu hộ = 0
-        if (order.getPaymentMethod() != PaymentMethod.COD) {
-            return BigDecimal.ZERO;
-        }
-
-        BigDecimal totalRemaining = order.getRemainingAmount(); // Tổng tiền còn lại của cả đơn hàng
-        BigDecimal orderSubtotal = order.getSubtotal(); // Tổng giá trị hàng hóa của cả đơn hàng
-
-        // Nếu tổng đơn = 0 (đơn 0 đồng), thì COD = 0
-        if (orderSubtotal.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO;
-        }
-
-        // Tính tổng giá trị (subtotal) của CÁC MÓN HÀNG trong vận đơn này
-        BigDecimal subtotalForThisDelivery = BigDecimal.ZERO;
-        for (ReservationEntity res : reservations) {
-            // Giả sử subtotal trong OrderItem là giá cuối (đã trừ khuyến mãi)
-            subtotalForThisDelivery = subtotalForThisDelivery.add(res.getOrderItem().getSubtotal());
-        }
-
-        // Tính tỷ lệ giá trị của gói hàng này so với tổng đơn hàng
-        // Tỷ lệ = (Giá trị gói này) / (Tổng giá trị đơn hàng)
-        BigDecimal proportion = subtotalForThisDelivery.divide(orderSubtotal, 4, RoundingMode.HALF_UP);
-
-        // COD của gói này = (Tỷ lệ) * (Tổng tiền còn lại của đơn hàng)
-        BigDecimal codAmount = totalRemaining.multiply(proportion).setScale(0, RoundingMode.HALF_UP); // Làm tròn đến đồng
-
-        return codAmount;
-    }
-
-
-    // ... (Toàn bộ các hàm khác: updateTrackingInfo, updateDeliveryStatus, helpers... giữ nguyên) ...
-    // ...
     @Override
     @Transactional
     public void updateTrackingInfo(Long deliveryId, UpdateTrackingRequest req) {
-        DeliveryEntity delivery = deliveryRepository.findById(deliveryId)
-                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Không tìm thấy vận đơn"));
+        DeliveryEntity delivery = getDeliveryOrThrow(deliveryId);
 
         if (delivery.getStatus() != DeliveryStatus.PENDING) {
-            throw new AppException(ErrorCode.VALIDATION_ERROR,
-                    "Không thể cập nhật. Vận đơn đã được xử lý hoặc đang trên đường giao.");
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Chỉ có thể cập nhật thông tin khi vận đơn đang chờ xử lý");
         }
 
         delivery.setCarrierName(req.getCarrierName());
         delivery.setTrackingCode(req.getTrackingCode());
         delivery.setShippingFee(req.getShippingFee());
-        delivery.setNote("Đã cập nhật mã vận đơn thủ công (" + req.getCarrierName() + ")");
+        delivery.setNote("Cập nhật thủ công: " + req.getCarrierName());
 
         deliveryRepository.save(delivery);
     }
@@ -176,128 +91,289 @@ public class DeliveryServiceImpl implements DeliveryService {
     @Override
     @Transactional
     public void updateDeliveryStatus(Long deliveryId, DeliveryStatus newStatus) {
-        DeliveryEntity delivery = deliveryRepository.findById(deliveryId)
-                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Delivery not found"));
-
+        DeliveryEntity delivery = getDeliveryOrThrow(deliveryId);
         if (delivery.getStatus() == newStatus) return;
 
         List<ReservationEntity> reservations = reservationRepository.findByDeliveryId(deliveryId);
         if (reservations.isEmpty()) {
-            throw new AppException(ErrorCode.INTERNAL_ERROR, "Dữ liệu vận đơn không liên kết với yêu cầu kho.");
+            throw new AppException(ErrorCode.INTERNAL_ERROR, "Vận đơn không có hàng hóa liên kết");
         }
 
-        OrderEntity order = reservations.get(0).getOrder();
-
-        for (ReservationEntity res : reservations) {
-            InventoryLocationEntity location = res.getLocation();
-            VariantEntity variant = res.getOrderItem().getVariant();
-            List<String> serials = res.getProductSerials().stream().map(ProductSerialEntity::getSerialNo).toList();
-            int qty = res.getQuantity();
-
-            switch (newStatus) {
-                case PICKED_UP:
-                case DELIVERING:
-                    if (delivery.getStatus() == DeliveryStatus.PENDING) {
-                        deductInventory(location, variant, qty);
-                        productSerialRepository.updateStatusBySerials(serials,ProductSerialStatus.IN_TRANSFER);
-                        createMovement(location, variant, -qty, "DELIVERY_OUT", delivery.getId());
-                        res.setStatus(ReservationStatus.TRANSFERRING);
-                    }
-                    break;
-                case DELIVERED:
-                    if (delivery.getStatus() == DeliveryStatus.DELIVERING) {
-                        productSerialRepository.updateStatusBySerials(serials, ProductSerialStatus.SOLD);
-                        delivery.setActualDeliveryTime(LocalDateTime.now());
-                        res.setStatus(ReservationStatus.COMPLETED);
-                    }
-                    break;
-//                case RETURNED:
-                case FAILED:
-                    if (res.getStatus() == ReservationStatus.TRANSFERRING) {
-                        restockInventory(location, variant, qty);
-                        productSerialRepository.updateSerialsForReceiving(serials, location);
-                        createMovement(location, variant, qty, "DELIVERY_RETURN", delivery.getId());
-                    }
-                    res.setStatus(ReservationStatus.CANCELLED);
-                    break;
-                case CANCELLED:
-                    if (delivery.getStatus() == DeliveryStatus.PENDING) {
-                        updateInventoryReserve(location, variant, qty, false);
-                        productSerialRepository.updateStatusBySerials(serials, ProductSerialStatus.IN_STOCK);
-                        res.setStatus(ReservationStatus.CANCELLED);
-                    }
-                    break;
-                default:
-                    break;
-            }
+        switch (newStatus) {
+            case PICKED_UP, DELIVERING -> handleStartDelivery(delivery, reservations, newStatus);
+            case DELIVERED -> handleDeliverySuccess(delivery, reservations);
+            case FAILED -> handleDeliveryFailed(reservations, delivery.getId());
+            case CANCELLED -> handleDeliveryCancelled(delivery, reservations);
+            default -> log.warn("Trạng thái không được hỗ trợ xử lý tự động: {}", newStatus);
         }
 
         delivery.setStatus(newStatus);
         deliveryRepository.save(delivery);
         reservationRepository.saveAll(reservations);
 
-        // KIỂM TRA ĐƠN HÀNG HOÀN THÀNH (Logic quan trọng)
-        checkAndUpdateOrderStatus(order);
+        checkAndUpdateOrderStatus(reservations.get(0).getOrder());
     }
 
-    /**
-     * Kiểm tra xem tất cả Reservation của 1 Order đã hoàn thành/hủy chưa,
-     * nếu rồi thì tự động cập nhật Order status.
-     */
-    private void checkAndUpdateOrderStatus(OrderEntity order) {
-        // Tải lại order để lấy trạng thái mới nhất của tất cả reservations
-        OrderEntity freshOrder = orderRepository.findById(order.getId()).get();
+    // ========================================================================
+    // PRIVATE BUSINESS LOGIC METHODS
+    // ========================================================================
 
-        boolean allCompletedOrCancelled = true;
-        boolean hasDelivered = false;
+    private void handleStartDelivery(DeliveryEntity delivery, List<ReservationEntity> reservations, DeliveryStatus newStatus) {
+        // Chỉ xử lý khi chuyển từ PENDING -> DELIVERING/PICKED_UP
+        if (delivery.getStatus() != DeliveryStatus.PENDING) return;
 
-        for (ReservationEntity res : freshOrder.getReservations()) {
-            if (res.getStatus() == ReservationStatus.COMPLETED) {
-                hasDelivered = true;
+        for (ReservationEntity res : reservations) {
+            deductInventory(res.getLocation(), res.getOrderItem().getVariant(), res.getQuantity());
+
+            List<String> serials = getSerialNumbers(res);
+            productSerialRepository.updateStatusBySerials(serials, ProductSerialStatus.IN_TRANSFER);
+
+            createMovement(res.getLocation(), res.getOrderItem().getVariant(), -res.getQuantity(), "DELIVERY_OUT", delivery.getId());
+            res.setStatus(ReservationStatus.TRANSFERRING);
+        }
+    }
+
+    private void handleDeliverySuccess(DeliveryEntity delivery, List<ReservationEntity> reservations) {
+        if (delivery.getStatus() != DeliveryStatus.DELIVERING && delivery.getStatus() != DeliveryStatus.PICKED_UP) return;
+
+        for (ReservationEntity res : reservations) {
+            List<String> serials = getSerialNumbers(res);
+            productSerialRepository.updateStatusBySerials(serials, ProductSerialStatus.SOLD);
+            res.setStatus(ReservationStatus.COMPLETED);
+        }
+        delivery.setActualDeliveryTime(LocalDateTime.now());
+        processFinancialsForDelivery(delivery);
+    }
+
+    private void handleDeliveryFailed(List<ReservationEntity> reservations, Long deliveryId) {
+        for (ReservationEntity res : reservations) {
+            if (res.getStatus() == ReservationStatus.TRANSFERRING) {
+                // Hoàn kho
+                restockInventory(res.getLocation(), res.getOrderItem().getVariant(), res.getQuantity());
+
+                List<String> serials = getSerialNumbers(res);
+                productSerialRepository.updateSerialsForReceiving(serials, res.getLocation());
+
+                createMovement(res.getLocation(), res.getOrderItem().getVariant(), res.getQuantity(), "DELIVERY_RETURN", deliveryId);
             }
-            // Nếu có bất kỳ món nào vẫn đang PENDING/CONFIRMED/TRANSFERRING
-            if (res.getStatus() == ReservationStatus.PENDING ||
-                res.getStatus() == ReservationStatus.CONFIRMED ||
-                res.getStatus() == ReservationStatus.TRANSFERRING) {
-                allCompletedOrCancelled = false;
-                break;
+            res.setStatus(ReservationStatus.CANCELLED);
+        }
+    }
+
+    private void handleDeliveryCancelled(DeliveryEntity delivery, List<ReservationEntity> reservations) {
+        if (delivery.getStatus() == DeliveryStatus.PENDING) {
+            for (ReservationEntity res : reservations) {
+                // Nhả Reserved Stock
+                updateInventoryReserve(res.getLocation(), res.getOrderItem().getVariant(), res.getQuantity(), false);
+
+                List<String> serials = getSerialNumbers(res);
+                productSerialRepository.updateStatusBySerials(serials, ProductSerialStatus.IN_STOCK);
+
+                res.setStatus(ReservationStatus.PENDING);
             }
         }
+    }
 
-        if (allCompletedOrCancelled && hasDelivered) {
-            log.info("Tất cả gói hàng cho Order ID {} đã xử lý xong. Cập nhật Order -> COMPLETED.", order.getId());
-            order.setStatus(OrderStatus.COMPLETED);
+    private void validateReservationsForDelivery(List<ReservationEntity> reservations) {
+        ReservationEntity first = reservations.get(0);
+        Long orderId = first.getOrder().getId();
+        Long locationId = first.getLocation().getId();
+
+        for (ReservationEntity res : reservations) {
+            if (res.getStatus() != ReservationStatus.PENDING) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Yêu cầu " + res.getId() + " không ở trạng thái chờ (PENDING)");
+            }
+            if (!res.getOrder().getId().equals(orderId)) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Tất cả yêu cầu phải thuộc cùng một đơn hàng");
+            }
+            if (!res.getLocation().getId().equals(locationId)) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Tất cả yêu cầu phải xuất phát từ cùng một kho");
+            }
+            if (res.getOrder().getReceiveMethod() == ReceiveMethod.PICKUP) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Đơn hàng nhận tại quầy không thể tạo vận đơn giao hàng");
+            }
+        }
+    }
+
+    private void validateSerialStatus(ReservationEntity res) {
+        long validCount = res.getProductSerials().stream()
+                .filter(s -> s.getStatus() == ProductSerialStatus.RESERVED)
+                .count();
+        if (validCount != res.getQuantity()) {
+            throw new AppException(ErrorCode.INTERNAL_ERROR,
+                    "Lỗi dữ liệu: Serial của Reservation " + res.getId() + " không ở trạng thái RESERVED");
+        }
+    }
+
+    private BigDecimal calculateCodForDelivery(OrderEntity order, List<ReservationEntity> reservations) {
+        if (order.getPaymentMethod() != PaymentMethod.COD ||
+            order.getSubtotal().compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal deliverySubtotal = reservations.stream()
+                .map(res -> res.getOrderItem().getSubtotal())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Tỷ lệ = (Giá trị gói này) / (Tổng giá trị đơn hàng)
+        BigDecimal proportion = deliverySubtotal.divide(order.getSubtotal(), 4, RoundingMode.HALF_UP);
+
+        // COD = Tỷ lệ * Tổng tiền còn lại
+        return order.getRemainingAmount().multiply(proportion).setScale(0, RoundingMode.HALF_UP);
+    }
+
+// Trong DeliveryServiceImpl.java
+
+    private void processFinancialsForDelivery(DeliveryEntity delivery) {
+        BigDecimal codAmount = delivery.getCodAmount();
+        OrderEntity order = delivery.getOrder();
+
+        // Validate đầu vào kỹ hơn: null check và > 0
+        if (codAmount != null && codAmount.compareTo(BigDecimal.ZERO) > 0) {
+
+            // A1. Tạo Payment
+            PaymentEntity payment = new PaymentEntity();
+            payment.setOrder(order);
+            payment.setAmount(codAmount);
+            payment.setMethod(PaymentMethod.COD);
+            payment.setStatus(PaymentStatus.PAID);
+            payment.setTransactionRef(delivery.getTrackingCode());
+            payment.setCreatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            // A2. Cập nhật Order (Null Safety)
+            BigDecimal currentPaid = order.getPaidAmount() == null ? BigDecimal.ZERO : order.getPaidAmount();
+            BigDecimal newPaidAmount = currentPaid.add(codAmount);
+
+            order.setPaidAmount(newPaidAmount);
+            // Lưu ý: totalAmount cũng nên check null nếu cần, nhưng thường order phải có total
+            order.setRemainingAmount(order.getTotalAmount().subtract(newPaidAmount));
+
+            // Nếu đã trả hết hoặc trả dư -> Order hoàn tất thanh toán
+            // (Tùy logic bên bạn có muốn set status order là PAID không)
+            // if (order.getRemainingAmount().compareTo(BigDecimal.ZERO) <= 0) { ... }
+
             orderRepository.save(order);
-        } else if (hasDelivered) {
-            // Có 1 gói đã giao, nhưng gói khác còn đang đi (PARTIALLY_DELIVERED)
-            // (Bạn cần thêm status PARTIALLY_DELIVERED vào OrderStatus nếu muốn)
-            // order.setStatus(OrderStatus.PARTIALLY_DELIVERED);
-            // orderRepository.save(order);
+
+            // A3. Xử lý Nợ (1-1)
+            allocatePaymentToDebt(order, codAmount);
         }
     }
 
-    // --- (Các hàm Helper: updateInventoryReserve, deductInventory, restockInventory, createMovement, toDto giữ nguyên) ---
-    private void updateInventoryReserve(InventoryLocationEntity loc, VariantEntity variant, int qty, boolean isAdd) {
-        InventoryEntity inv = inventoryRepository.findByInventoryLocationIdAndVariantId(loc.getId(), variant.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, "Inventory not found"));
+    private void allocatePaymentToDebt(OrderEntity order, BigDecimal paymentAmount) {
+        // 1. Tìm bản ghi nợ duy nhất
+        Optional<DebtEntity> debtOpt = debtRepository.findByOrderId(order.getId());
 
-        int currentReserved = inv.getReservedStock() == null ? 0 : inv.getReservedStock();
-        if (isAdd) {
-            inv.setReservedStock(currentReserved + qty);
-        } else {
-            inv.setReservedStock(Math.max(0, currentReserved - qty));
+        if (debtOpt.isEmpty()) {
+            // Log warning nếu có tiền trả mà không tìm thấy nợ (tùy nghiệp vụ)
+            log.warn("Order {} có thanh toán {} nhưng không tìm thấy bản ghi Debt.", order.getId(), paymentAmount);
+            return;
         }
+
+        DebtEntity debt = debtOpt.get();
+
+        // 2. Nếu nợ đã trả xong rồi thì thôi (hoặc có thể xử lý nợ âm/trả thừa tại đây)
+        if (DebtStatus.PAID.equals(debt.getStatus())) return; // Hoặc check status enum của bạn
+
+        // 3. Tính toán an toàn (Null Safety)
+        BigDecimal totalDebt = debt.getTotalAmount();
+        BigDecimal debtPaidSoFar = debt.getPaidAmount() == null ? BigDecimal.ZERO : debt.getPaidAmount();
+
+        // Số tiền CÒN PHẢI TRẢ cho khoản nợ này
+        BigDecimal debtRemaining = totalDebt.subtract(debtPaidSoFar);
+
+        // 4. Logic trừ nợ
+        if (paymentAmount.compareTo(debtRemaining) >= 0) {
+            // Trường hợp trả ĐỦ hoặc DƯ -> Đóng nợ
+            // Set đúng bằng totalAmount (không set dư, tránh số liệu nợ bị sai lệch)
+            debt.setPaidAmount(totalDebt);
+            debt.setStatus(DebtStatus.PAID);
+
+            // (Optional) Nếu paymentAmount > debtRemaining, phần dư đó đang đi đâu?
+            // Thường logic tính COD đã chặn việc này, nên ở đây set max là totalDebt là an toàn.
+        } else {
+            // Trường hợp trả 1 PHẦN
+            debt.setPaidAmount(debtPaidSoFar.add(paymentAmount));
+            debt.setStatus(DebtStatus.PARTIAL);
+        }
+
+        // Cập nhật ngày thanh toán gần nhất (nếu có field)
+         debt.setUpdatedAt(LocalDateTime.now());
+
+        debtRepository.save(debt);
+    }
+
+    private void checkAndUpdateOrderStatus(OrderEntity order) {
+        OrderEntity freshOrder = orderRepository.findById(order.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Order not found"));
+
+        List<ReservationEntity> reservations = freshOrder.getReservations();
+        if (reservations.isEmpty()) return;
+
+        // Điều kiện 1: TẤT CẢ phải là COMPLETED (Không chấp nhận Cancelled/Failed)
+        boolean allStrictlySuccess = reservations.stream()
+                .allMatch(r -> r.getStatus() == ReservationStatus.COMPLETED);
+
+        // Điều kiện 2: Có bất kỳ món nào đang đi giao không?
+        boolean isShipping = reservations.stream()
+                .anyMatch(r -> r.getStatus() == ReservationStatus.TRANSFERRING);
+
+        // 3. Cập nhật trạng thái
+        if (allStrictlySuccess) {
+            // CASE: Thành công tuyệt đối -> Đóng đơn
+            if (freshOrder.getStatus() != OrderStatus.COMPLETED) {
+                freshOrder.setStatus(OrderStatus.COMPLETED);
+                orderRepository.save(freshOrder);
+                log.info("Order ID {} -> COMPLETED (100% Items Delivered)", freshOrder.getId());
+            }
+        } else if (isShipping) {
+            // CASE: Đang giao hàng
+            if (freshOrder.getStatus() != OrderStatus.DELIVERING) {
+                freshOrder.setStatus(OrderStatus.DELIVERING);
+                orderRepository.save(freshOrder);
+            }
+        }
+
+        // CASE ĐẶC BIỆT: Giao xong hết rồi (không còn ai Transferring)
+        // NHƯNG có 1 món bị Fail/Cancel.
+        // -> Code sẽ KHÔNG chạy vào block 'allStrictlySuccess'.
+        // -> Đơn hàng sẽ GIỮ NGUYÊN trạng thái cũ (thường là DELIVERING).
+        // -> Nhân viên phải vào xử lý thủ công (hoặc hệ thống cần thêm status PARTIALLY_FAILED).
+    }
+
+    // ========================================================================
+    // HELPERS
+    // ========================================================================
+
+    private DeliveryEntity getDeliveryOrThrow(Long id) {
+        return deliveryRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Delivery not found"));
+    }
+
+    private List<String> getSerialNumbers(ReservationEntity res) {
+        return res.getProductSerials().stream().map(ProductSerialEntity::getSerialNo).toList();
+    }
+
+    private void updateInventoryReserve(InventoryLocationEntity loc, VariantEntity variant, int qty, boolean isAdd) {
+        InventoryEntity inv = getInventoryOrThrow(loc.getId(), variant.getId());
+        int currentReserved = inv.getReservedStock() == null ? 0 : inv.getReservedStock();
+        inv.setReservedStock(isAdd ? currentReserved + qty : Math.max(0, currentReserved - qty));
         inventoryRepository.save(inv);
     }
+
     private void deductInventory(InventoryLocationEntity loc, VariantEntity variant, int qty) {
-        InventoryEntity inv = inventoryRepository.findByInventoryLocationIdAndVariantId(loc.getId(), variant.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, "Inventory not found"));
-        if (inv.getStock() < qty) throw new AppException(ErrorCode.VALIDATION_ERROR, "Not enough stock");
+        InventoryEntity inv = getInventoryOrThrow(loc.getId(), variant.getId());
+
+        if (inv.getStock() < qty) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Kho không đủ số lượng tồn thực tế để xuất hàng");
+        }
+
         inv.setStock(inv.getStock() - qty);
         int currentReserved = inv.getReservedStock() == null ? 0 : inv.getReservedStock();
         inv.setReservedStock(Math.max(0, currentReserved - qty));
         inventoryRepository.save(inv);
     }
+
     private void restockInventory(InventoryLocationEntity loc, VariantEntity variant, int qty) {
         InventoryEntity inv = inventoryRepository.findByInventoryLocationIdAndVariantId(loc.getId(), variant.getId())
                 .orElseGet(() -> {
@@ -311,6 +387,12 @@ public class DeliveryServiceImpl implements DeliveryService {
         inv.setStock(inv.getStock() + qty);
         inventoryRepository.save(inv);
     }
+
+    private InventoryEntity getInventoryOrThrow(Long locId, Long variantId) {
+        return inventoryRepository.findByInventoryLocationIdAndVariantId(locId, variantId)
+                .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, "Inventory record not found"));
+    }
+
     private void createMovement(InventoryLocationEntity loc, VariantEntity variant, int qtyDelta, String reason, Long refId) {
         StockMovementEntity mov = new StockMovementEntity();
         mov.setInventoryLocation(loc);
@@ -322,6 +404,7 @@ public class DeliveryServiceImpl implements DeliveryService {
         mov.setCreatedAt(LocalDateTime.now());
         stockMovementRepository.save(mov);
     }
+
     private DeliveryDto toDto(DeliveryEntity entity) {
         return DeliveryDto.builder()
                 .id(entity.getId())

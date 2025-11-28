@@ -6,6 +6,5 @@ public enum DeliveryStatus {
     DELIVERING,     // Đang giao
     DELIVERED,      // Giao thành công
     FAILED,         // Giao thất bại (khách không nghe máy)
-    RETURNED,       // Hoàn hàng về shop
     CANCELLED       // Hủy đơn
 }

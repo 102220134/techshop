@@ -1,15 +1,15 @@
 package com.pbl6.services.impl;
 
 import com.pbl6.dtos.request.webhook.SePayWebhookPayload;
-import com.pbl6.dtos.request.checkout.PaymentRequest;
 import com.pbl6.dtos.response.payment.PaymentInitResponse;
 import com.pbl6.entities.OrderEntity;
 import com.pbl6.entities.PaymentEntity;
-import com.pbl6.enums.OrderStatus;
 import com.pbl6.enums.PaymentMethod;
 import com.pbl6.enums.PaymentStatus;
+import com.pbl6.exceptions.AppException;
+import com.pbl6.exceptions.ErrorCode;
+import com.pbl6.repositories.OrderRepository;
 import com.pbl6.repositories.PaymentRepository;
-import com.pbl6.services.OrderService;
 import com.pbl6.services.PaymentService;
 import com.pbl6.services.strategy.BankTransferPayment;
 import com.pbl6.services.strategy.CodPayment;
@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,93 +30,129 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
+
     private final CodPayment cod;
     private final BankTransferPayment bankTransfer;
     private final VNPayPayment vnPayPayment;
 
     private final PaymentRepository paymentRepo;
-    private final OrderService orderService;
-
+    private final OrderRepository orderRepository;
     private final SimpMessagingTemplate template;
 
-    @Override
-    public String handleSePayWebhook(SePayWebhookPayload payload) {
+    // Nếu bạn đã có DebtService như bài trước, hãy inject vào đây
+    // private final DebtService debtService;
 
-        // 1️⃣ Tách orderId
+    @Override
+    @Transactional
+    public String handleSePayWebhook(SePayWebhookPayload payload) {
+        // 1️⃣ Validate & Lấy Order ID
         Long orderId = extractOrderId(payload.getContent());
         if (orderId == null) {
-            log.warn("Order ID not found in content: {}", payload.getContent());
-            return "order id not found in content";
+            log.error("Cannot extract orderId from content: {}", payload.getContent());
+            return "invalid content"; // Trả về text để controller log, ko nên throw 500 cho webhook
         }
 
-        // 2️⃣ Tìm payment tương ứng
-        Optional<PaymentEntity> optPayment = paymentRepo.findTopByOrderIdOrderByIdDesc(orderId);
+        // 2️⃣ Load Order & Payment (Null Safety)
+        OrderEntity order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Order not found"));
 
+        PaymentEntity payment = paymentRepo.findTopByOrderIdOrderByIdDesc(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "No pending payment found for order"));
 
-        PaymentEntity payment = optPayment.get();
-        BigDecimal expectedAmount = payment.getAmount();
-        BigDecimal actualAmount = payload.getTransferAmount();
-
-        // 3️⃣ Kiểm tra trạng thái hiện tại
+        // 3️⃣ Idempotency Check (Tránh xử lý trùng)
         if (PaymentStatus.PAID.equals(payment.getStatus())) {
-            log.info("Payment {} already completed, ignoring duplicate webhook", payment.getId());
+            log.info("Payment {} already completed. Ignoring webhook.", payment.getId());
             return "already completed";
         }
 
-        // 4️⃣ Cập nhật thông tin thanh toán
-        payment.setPaidAt(LocalDateTime.now());
-        payment.setTransactionRef(payload.getReferenceCode());
+        // 4️⃣ Chuẩn bị dữ liệu so sánh
+        BigDecimal expectedAmount = payment.getAmount();
+        BigDecimal actualAmount = payload.getTransferAmount();
 
-        // 5️⃣ So sánh số tiền
-        int compare = actualAmount.compareTo(expectedAmount);
-        switch (compare) {
-            case 0 -> { // ✅ Đúng số tiền
-                payment.setStatus(PaymentStatus.PAID);
-                paymentRepo.save(payment);
-                orderService.confirmOrder(orderId);
-                template.convertAndSend("/topic/"+orderId, payment.getStatus());
-                log.info("Payment success for order {}, amount={}", orderId, actualAmount);
-                return "payment success";
-            }
-            case -1 -> { // ⚠️ Thiếu tiền
-                payment.setStatus(PaymentStatus.FAILED);
-                paymentRepo.save(payment);
-                log.warn("Underpaid: expected={} actual={}", expectedAmount, actualAmount);
-                template.convertAndSend("/topic/"+orderId, payment.getStatus());
-                return "underpaid";
-            }
-            case 1 -> { // ⚠️ Dư tiền
-                payment.setStatus(PaymentStatus.FAILED);
-                paymentRepo.save(payment);
-                log.warn("Overpaid: expected={} actual={}", expectedAmount, actualAmount);
-                template.convertAndSend("/topic/"+orderId, payment.getStatus());
-                return "overpaid";
-            }
-            default -> {
-                log.error("Unexpected compare result for payment {}", payment.getId());
-                return "unexpected amount comparison";
+        // Cập nhật thông tin giao dịch vào Payment trước
+        payment.setTransactionRef(payload.getReferenceCode());
+        payment.setPaidAt(LocalDateTime.now());
+
+        String resultMessage;
+
+        // 5️⃣ Xử lý Logic so sánh tiền
+        // Case A: Đủ tiền hoặc Dư tiền (>=)
+        if (actualAmount.compareTo(expectedAmount) >= 0) {
+            payment.setStatus(PaymentStatus.PAID);
+
+            // Xử lý Tài chính (Order & Debt)
+            updateOrderFinancials(order, actualAmount); // Quan trọng: Update theo số thực tế nhận
+
+            resultMessage = (actualAmount.compareTo(expectedAmount) > 0) ? "overpaid" : "success";
+            if (actualAmount.compareTo(expectedAmount) > 0) {
+                log.warn("Order {} overpaid! Expected: {}, Actual: {}", orderId, expectedAmount, actualAmount);
             }
         }
+        // Case B: Thiếu tiền (<)
+        else {
+            payment.setStatus(PaymentStatus.FAILED); // Hoặc PARTIAL nếu hệ thống hỗ trợ
+            log.warn("Order {} underpaid. Expected: {}, Actual: {}", orderId, expectedAmount, actualAmount);
+            resultMessage = "underpaid";
+
+            // Tùy nghiệp vụ: Có thể vẫn cộng tiền vào Order nhưng không mark Payment là PAID hoàn toàn
+            // updateOrderFinancials(order, actualAmount);
+        }
+
+        // 6️⃣ Save & Notify (DRY - Viết 1 lần)
+        paymentRepo.save(payment); // Save payment đã đổi status
+        orderRepository.save(order); // Save order đã đổi paidAmount
+
+        // Gửi socket báo client
+        template.convertAndSend("/topic/" + orderId, payment.getStatus());
+
+        return resultMessage;
+    }
+
+    /**
+     * Hàm helper để cập nhật tài chính Order (Đồng bộ với logic Debt 1-1 ở bài trước)
+     */
+    private void updateOrderFinancials(OrderEntity order, BigDecimal incomingAmount) {
+        // Null safety
+        BigDecimal currentPaid = order.getPaidAmount() == null ? BigDecimal.ZERO : order.getPaidAmount();
+
+        // Cộng dồn tiền đã trả
+        order.setPaidAmount(currentPaid.add(incomingAmount));
+
+        // Tính lại tiền còn thiếu
+        order.setRemainingAmount(order.getTotalAmount().subtract(order.getPaidAmount()));
+
+        // --- TÍCH HỢP DEBT (Nếu có) ---
+        // if (debtService != null) {
+        //     debtService.allocatePaymentToDebt(order, incomingAmount);
+        // }
     }
 
     @Override
     public PaymentInitResponse create(OrderEntity order) {
         PaymentMethod m = order.getPaymentMethod();
+        if (m == null) throw new AppException(ErrorCode.VALIDATION_ERROR, "Payment method is null");
+
         return switch (m) {
             case COD -> cod.initiate(order);
             case BANK -> bankTransfer.initiate(order);
             case VNPAY -> vnPayPayment.initiate(order);
+            default -> throw new AppException(ErrorCode.VALIDATION_ERROR, "Unsupported payment method");
         };
     }
 
     private Long extractOrderId(String content) {
         if (content == null || content.isBlank()) return null;
+        // Regex nên clear hơn, ví dụ tiền tố từ config
         Pattern pattern = Pattern.compile("(?i)PY1\\s*(\\d+)");
         Matcher matcher = pattern.matcher(content);
         if (matcher.find()) {
-            return Long.valueOf(matcher.group(1));
+            try {
+                return Long.valueOf(matcher.group(1));
+            } catch (NumberFormatException e) {
+                log.error("Error parsing orderId from content: {}", content);
+                return null;
+            }
         }
-        log.warn("Không tìm thấy orderId trong content: {}", content);
         return null;
     }
 }
