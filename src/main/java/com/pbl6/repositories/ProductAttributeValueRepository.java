@@ -26,5 +26,16 @@ public interface ProductAttributeValueRepository extends JpaRepository<ProductAt
 """)
     List<ProductAttributeValueEntity> findOptionAttributesByProductId(@Param("productId") Long productId);
 
+    @Query("SELECT DISTINCT pav FROM ProductAttributeValueEntity pav " +
+           "JOIN FETCH pav.attribute attr " +
+           "JOIN FETCH pav.attributeValue av " +
+           "JOIN pav.product p " +
+           "JOIN p.categories c " + // ✅ JOIN vào list categories
+           "WHERE c.id = :categoryId AND p.isActive = true")
+    List<ProductAttributeValueEntity> findAllByCategory(@Param("categoryId") Long categoryId);
+
+    boolean existsByAttributeValueId(Long attributeValueId);
+
+    List<ProductAttributeValueEntity> findByProductId(Long id);
 }
 

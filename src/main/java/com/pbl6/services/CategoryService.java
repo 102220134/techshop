@@ -17,4 +17,6 @@ public interface CategoryService {
     CategoryDto createCategory(CategoryCreateRequest request);
     CategoryDto updateCategory(Long id, CategoryUpdateRequest request);
     void deleteCategory(Long id);
+
+    List<CategoryEntity> getAllParents(Long cateId);
 }

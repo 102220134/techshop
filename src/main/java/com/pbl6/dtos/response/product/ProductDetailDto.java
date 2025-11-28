@@ -2,6 +2,7 @@ package com.pbl6.dtos.response.product;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pbl6.dtos.response.BreadcrumbDto;
 import com.pbl6.dtos.response.promotion.PromotionDto;
@@ -49,7 +50,7 @@ public class ProductDetailDto {
     private List<PromotionDto> promotions;
 
     private boolean isAvailable;
-    private ObjectNode detail;
+    private JsonNode detail;
 
     private List<VariantDto> variants;
 

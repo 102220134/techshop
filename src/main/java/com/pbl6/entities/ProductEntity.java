@@ -33,7 +33,7 @@ public class ProductEntity implements Activatable {
 
     @Column(columnDefinition = "json")
     @JdbcTypeCode(SqlTypes.JSON)
-    private ObjectNode detail;
+    private JsonNode detail;
 
     @Column(nullable=false, unique=true, length=120)
     private String slug;
@@ -75,10 +75,6 @@ public class ProductEntity implements Activatable {
 
     @ManyToMany(mappedBy = "likedProducts", fetch = FetchType.LAZY)
     private Set<UserEntity> likedBys;
-
-    // ✅ Nếu muốn truy ngược lại (đối xứng)
-    @ManyToMany(mappedBy = "relatedProducts",fetch = FetchType.LAZY)
-    private Set<ProductEntity> relatedTo;
 
     @Formula("(SELECT MIN(v.price) FROM variants v WHERE v.product_id = id AND v.is_active = 1)")
     private BigDecimal price;

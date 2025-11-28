@@ -40,4 +40,7 @@ public class CategoryEntity implements Activatable {
 
     @ManyToMany(mappedBy = "categories", fetch = FetchType.LAZY)
     private List<ProductEntity> products;
+
+    @OneToMany(mappedBy="category", fetch=FetchType.LAZY)
+    private Set<AttributeEntity> attributes;
 }

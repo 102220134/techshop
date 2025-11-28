@@ -47,11 +47,11 @@ public class VariantEntity implements Activatable {
 
     // Tồn kho đã giữ chỗ
     @Formula("(SELECT COALESCE(SUM(i.reserved_stock), 0) FROM inventories i WHERE i.variant_id = id)")
-    private Integer reservedStock;
+    private Integer reservedStock ;
 
     // Số lượng đã bán
     @Formula("(SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.variant_id = id)")
-    private Integer sold;
+    private Integer sold ;
 
 
     @OneToMany(mappedBy="variant", fetch=FetchType.LAZY)

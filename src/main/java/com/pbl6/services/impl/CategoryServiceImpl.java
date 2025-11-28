@@ -188,6 +188,19 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    public List<CategoryEntity> getAllParents(Long categoryId) {
+        CategoryEntity category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR,"category not found"));
+        List<CategoryEntity> result = new ArrayList<>();
+        while (category != null) {
+            result.add(category);
+            category = category.getParent();
+        }
+        Collections.reverse(result);
+        return result;
+    }
+
+    @Override
     public BreadcrumbDto getBreadcrumbByProductSlug(String productSlug) {
         ProductEntity product = entityUtil.ensureExists(productRepository.findBySlug(productSlug));
         if (!product.getIsActive()) {

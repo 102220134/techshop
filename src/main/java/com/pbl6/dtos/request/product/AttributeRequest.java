@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,12 +17,8 @@ import lombok.*;
 public class AttributeRequest {
     
     @NotBlank(message = ValidationMessages.PRODUCT_ATTRIBUTE_CODE_REQUIRED)
-    @Size(min = 1, max = 50, message = "Mã thuộc tính phải có từ 1-50 ký tự")
-    @Schema(description = "Mã thuộc tính", example = "color", requiredMode = Schema.RequiredMode.REQUIRED)
     private String code;
 
     @NotBlank(message = ValidationMessages.PRODUCT_ATTRIBUTE_VALUE_REQUIRED)
-    @Size(min = 1, max = 100, message = "Giá trị thuộc tính phải có từ 1-100 ký tự")
-    @Schema(description = "Giá trị thuộc tính", example = "Đỏ", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String value;
+    private List<String> values;
 }

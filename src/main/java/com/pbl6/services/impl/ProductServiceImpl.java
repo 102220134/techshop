@@ -1,19 +1,21 @@
 package com.pbl6.services.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pbl6.dtos.request.product.*;
 import com.pbl6.dtos.response.product.ProductDetailDto;
 import com.pbl6.dtos.response.product.ProductDto;
 import com.pbl6.entities.*;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
-import com.pbl6.mapper.MediaMapper;
 import com.pbl6.mapper.ProductMapper;
-import com.pbl6.mapper.PromotionMapper;
 import com.pbl6.repositories.*;
 import com.pbl6.services.*;
 import com.pbl6.specifications.ProductSpecifications;
 import com.pbl6.utils.CloudinaryUtil;
-import com.pbl6.utils.EntityUtil;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,35 +34,35 @@ import java.util.*;
 public class ProductServiceImpl implements ProductService {
 
     private final CategoryService categoryService;
-    private final WareHouseRepository wareHouseRepository;
-    private final EntityUtil entityUtil;
     private final ProductMapper productMapper;
-    private final MediaService mediaService;
     private final PromotionService promotionService;
-    private final PromotionMapper promotionMapper;
     private final ProductRepository productRepository;
     private final ProductAttributeValueRepository pavRepository;
-    private final MediaMapper mediaMapper;
     private final CategoryRepository categoryRepository;
-    private final MediaRepository mediaRepository;
-    private final VariantRepository variantRepository;
     private final CloudinaryUtil cloudinaryUtil;
     private final AttributeRepository attributeRepository;
     private final AttributeValueRepository attributeValueRepository;
-    private final VariantAttributeValueRepository vavRepo;
+    private final ObjectMapper objectMapper;
 
-    // --------------------------------------------------------------
-    // FEATURED PRODUCTS
-    // --------------------------------------------------------------
+    @PersistenceContext
+    private EntityManager entityManager;
+
+
     @Override
+    @Transactional(readOnly = true)
     public List<ProductDto> getFeaturedProducts(String slugPath, Integer size) {
         size = size == null ? 20 : size;
         CategoryEntity categoryEntity = categoryService.resolveBySlugPath(slugPath);
+
+        // CẢNH BÁO: findAll(spec) sẽ load toàn bộ sản phẩm của Category lên RAM.
+        // Nếu data lớn (>1000 sp/cate), nên cân nhắc lưu field "score" vào DB để sort bằng SQL.
         Specification<ProductEntity> spec = Specification
                 .where(ProductSpecifications.isActive(true))
                 .and(ProductSpecifications.byCategory(categoryEntity.getId()))
                 .and(ProductSpecifications.onlyInStock(true));
+
         List<ProductEntity> allProducts = productRepository.findAll(spec);
+
         List<ProductEntity> topProducts = allProducts.stream()
                 .filter(p -> p.getAvailableStock() > 0)
                 .sorted(Comparator.comparingDouble(this::calculateBaseScore).reversed())
@@ -70,10 +72,8 @@ public class ProductServiceImpl implements ProductService {
         return applyPromotions(topProducts);
     }
 
-    // --------------------------------------------------------------
-    // BEST SELLER PRODUCTS
-    // --------------------------------------------------------------
     @Override
+    @Transactional(readOnly = true)
     public List<ProductDto> getBestSellerProducts(String slug, Integer size) {
         size = size == null ? 20 : size;
         CategoryEntity categoryEntity = categoryService.resolveBySlugPath(slug);
@@ -87,10 +87,8 @@ public class ProductServiceImpl implements ProductService {
         return applyPromotions(productEntityPage.getContent());
     }
 
-    // --------------------------------------------------------------
-    // FILTER PRODUCT
-    // --------------------------------------------------------------
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductDto> filterProduct(String slugPath, ProductFilterRequest req) {
         CategoryEntity categoryEntity = categoryService.resolveBySlugPath(slugPath);
         Specification<ProductEntity> spec = Specification
@@ -110,10 +108,8 @@ public class ProductServiceImpl implements ProductService {
         return applyPromotions(productEntityPage);
     }
 
-    // --------------------------------------------------------------
-    // SEARCH PRODUCT
-    // --------------------------------------------------------------
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductDto> searchProduct(ProductSearchRequest req) {
         Specification<ProductEntity> spec = Specification
                 .where(ProductSpecifications.keyword(req.getQ()));
@@ -122,35 +118,37 @@ public class ProductServiceImpl implements ProductService {
         return applyPromotions(productsPage);
     }
 
-    // --------------------------------------------------------------
-    // PRODUCT DETAIL
-    // --------------------------------------------------------------
     @Override
+    @Transactional(readOnly = true)
     public ProductDetailDto getProductDetail(String slug) {
         ProductEntity product = productRepository.findBySlugAndIsActive(slug, true)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Product not found"));
         return mapToDetail(product);
-
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProductDetailDto getProductDetail(Long id) {
         ProductEntity product = productRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Product not found"));
         return mapToDetail(product);
     }
 
-
     @Override
+    @Transactional(readOnly = true)
     public Page<ProductDto> filterProducts(AdminSearchProductRequest req) {
-        Long cateId = req.getCategoryId() == null ? 3 : req.getCategoryId();
-        if (!categoryRepository.existsById(cateId)) {
-            throw new AppException(ErrorCode.NOT_FOUND, "Category not found");
-        }
+        Long cateId = req.getCategoryId();
+
         Specification<ProductEntity> spec = Specification
                 .where(ProductSpecifications.keyword(req.getKeyword()))
-                .and(ProductSpecifications.byCategory(cateId))
                 .and(ProductSpecifications.priceRange(req.getPrice_from(), req.getPrice_to()));
+
+        if (cateId != null) {
+            if (!categoryRepository.existsById(cateId)) {
+                throw new AppException(ErrorCode.NOT_FOUND, "Category not found");
+            }
+            spec = spec.and(ProductSpecifications.byCategory(cateId));
+        }
 
         Sort sort = Sort.by(
                 "desc".equalsIgnoreCase(req.getDir()) ? Sort.Direction.DESC : Sort.Direction.ASC,
@@ -158,275 +156,271 @@ public class ProductServiceImpl implements ProductService {
         );
 
         Pageable pageable = PageRequest.of(req.getPage() - 1, req.getSize(), sort);
-        Page<ProductEntity> productEntityPage = productRepository.findAll(spec, pageable);
-
         Page<ProductEntity> productsPage = productRepository.findAll(spec, pageable);
         return applyPromotions(productsPage);
     }
 
+    // --------------------------------------------------------------
+    // WRITE OPERATIONS
+    // --------------------------------------------------------------
 
+    @Override
+    @Transactional
+    public ProductDetailDto createProduct(CreateProductRequest request) {
+        productRepository.findBySlug(request.getSlug()).ifPresent(p -> {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Slug sản phẩm đã tồn tại");
+        });
+        ProductEntity product = new ProductEntity();
+        product.setName(request.getName());
+        product.setDescription(request.getDescription());
+        product.setSlug(request.getSlug());
+        product.setIsActive(request.getIsActive() != null ? request.getIsActive() : true);
 
+        if (request.getDetail() != null && !request.getDetail().isBlank()) {
+            try {
+                JsonNode detailNode = objectMapper.readTree(request.getDetail());
+                product.setDetail(detailNode);
+            } catch (JsonProcessingException e) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Format JSON của 'detail' không hợp lệ");
+            }
+        }
+        product.setCreatedAt(LocalDateTime.now());
+        product.setUpdatedAt(LocalDateTime.now());
 
+        if (request.getRelatedName() != null) product.setRelatedName(request.getRelatedName());
+
+        if (request.getThumbnail() != null && !request.getThumbnail().isEmpty()) {
+            String thumbnailUrl = cloudinaryUtil.uploadThumbnail(request.getThumbnail(), request.getSlug());
+            product.setThumbnail(thumbnailUrl);
+        }
+
+        if (request.getCategoryId() != null) {
+            List<CategoryEntity> categories = categoryService.getAllParents(request.getCategoryId());
+            product.setCategories(categories);
+        }
+
+        // 1. Lưu lần đầu để có ID
+        ProductEntity savedProduct = productRepository.save(product);
+
+        // 2. Lưu Attributes
+        if (request.getFilters() != null && !request.getFilters().isBlank()) {
+            try {
+                List<AttributeRequest> filterList = Arrays.asList(
+                        objectMapper.readValue(request.getFilters(), AttributeRequest[].class)
+                );
+                // Save list, không cần set ngược lại vào savedProduct vì tí nữa refresh sẽ tự load
+                pavRepository.saveAll(processProductAttributes(filterList, savedProduct));
+            } catch (JsonProcessingException e) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Format JSON của 'filters' không hợp lệ");
+            }
+        }
+
+        // 3. Update Sibling (Thay đổi quan hệ trong RAM)
+        if (request.getSibling() != null) {
+            updateSiblingRelationship(savedProduct, request.getSibling());
+        }
+
+        // ✅ FIX QUAN TRỌNG: Đẩy dữ liệu xuống DB trước khi Refresh
+        // Nếu không có dòng này, quan hệ sibling vừa set ở trên sẽ bị refresh xóa mất.
+        productRepository.flush();
+
+        // 4. Refresh để load lại đầy đủ thông tin (bao gồm @Formula, updated relations)
+        entityManager.refresh(savedProduct);
+
+        return mapToDetail(savedProduct);
+    }
+
+    @Override
+    @Transactional
+    public ProductDetailDto updateProduct(Long id, UpdateProductRequest request) {
+        ProductEntity product = productRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Product not found"));
+
+        // Set các trường cơ bản
+        if (request.getName() != null) product.setName(request.getName());
+        if (request.getDescription() != null) product.setDescription(request.getDescription());
+        if (request.getDetail() != null && !request.getDetail().isBlank()) {
+            try {
+                JsonNode detailNode = objectMapper.readTree(request.getDetail());
+                product.setDetail(detailNode);
+            } catch (JsonProcessingException e) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Format JSON của 'detail' không hợp lệ");
+            }
+        }
+        if (request.getSlug() != null) product.setSlug(request.getSlug());
+        if (request.getIsActive() != null) product.setIsActive(request.getIsActive());
+        if (request.getRelatedName() != null) product.setRelatedName(request.getRelatedName());
+        product.setUpdatedAt(LocalDateTime.now());
+
+        if (request.getThumbnail() != null && !request.getThumbnail().isEmpty()) {
+            String imageUrl = cloudinaryUtil.uploadThumbnail(request.getThumbnail(), product.getSlug());
+            product.setThumbnail(imageUrl);
+        }
+
+        if (request.getCategoryId() != null) {
+            var categories = categoryService.getAllParents(request.getCategoryId());
+            product.setCategories(categories);
+        }
+
+        // Xử lý Attributes
+        if (request.getFilters() != null && !request.getFilters().isBlank()) {
+            // Xóa cũ
+            List<ProductAttributeValueEntity> oldPavs = pavRepository.findByProductId(product.getId());
+            if (!oldPavs.isEmpty()) {
+                pavRepository.deleteAllInBatch(oldPavs);
+                pavRepository.flush(); // Flush ngay để tránh conflict unique constraint
+            }
+            // Thêm mới
+            try {
+                List<AttributeRequest> filterList = Arrays.asList(
+                        objectMapper.readValue(request.getFilters(), AttributeRequest[].class)
+                );
+                pavRepository.saveAll(processProductAttributes(filterList, product));
+            } catch (JsonProcessingException e) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, "Format JSON của 'filters' không hợp lệ");
+            }
+        }
+
+        // Xử lý Sibling
+        if (request.getSibling() != null) {
+            updateSiblingRelationship(product, request.getSibling());
+        }
+
+        // ✅ FIX QUAN TRỌNG: Lưu và Đẩy xuống DB trước khi Refresh
+        // Nếu thiếu bước này, refresh() sẽ xóa sạch các thay đổi Name, Desc, Sibling... vừa set ở trên
+        ProductEntity savedProduct = productRepository.save(product);
+        productRepository.flush();
+
+        // Load lại data mới nhất từ DB
+        entityManager.refresh(savedProduct);
+
+        return mapToDetail(savedProduct);
+    }
+
+    // --------------------------------------------------------------
+    // HELPER METHODS
+    // --------------------------------------------------------------
+
+    // ✅ FIX: Thêm Set để lọc trùng nếu input gửi lên [Red, Red]
+    private List<ProductAttributeValueEntity> processProductAttributes(List<AttributeRequest> filters, ProductEntity product) {
+        List<ProductAttributeValueEntity> list = new ArrayList<>();
+        Set<String> processedKeys = new HashSet<>(); // Chìa khóa để check trùng
+
+        for (AttributeRequest attrReq : filters) {
+            AttributeEntity attribute = attributeRepository.findByCodeAndIsFilterTrue(attrReq.getCode()).orElseThrow(
+                    () -> new AppException(ErrorCode.NOT_FOUND, "Filter attribute not found: " + attrReq.getCode())
+            );
+            for (String value : attrReq.getValues()) {
+                // Tạo key unique
+                String key = attrReq.getCode() + "-" + value;
+                if(processedKeys.contains(key)) continue; // Bỏ qua nếu trùng
+                processedKeys.add(key);
+
+                ProductAttributeValueEntity pav = new ProductAttributeValueEntity();
+                pav.setProduct(product);
+                AttributeValueEntity attributeValue = attributeValueRepository
+                        .findByValueAndAttributeId(value, attribute.getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Filter value not found: " + value));
+
+                pav.setAttribute(attribute);
+                pav.setAttributeValue(attributeValue);
+                list.add(pav);
+            }
+        }
+        return list;
+    }
+
+    private void updateSiblingRelationship(ProductEntity currentProduct, Long siblingId) {
+        ProductEntity sibling = productRepository.findById(siblingId).orElseThrow(
+                () -> new AppException(ErrorCode.NOT_FOUND, "Sibling product not found")
+        );
+
+        Set<ProductEntity> family = new HashSet<>();
+        if (sibling.getRelatedProducts() != null) {
+            family.addAll(sibling.getRelatedProducts());
+        }
+        family.add(sibling);
+
+        currentProduct.setRelatedProducts(new HashSet<>(family));
+
+        for (ProductEntity member : family) {
+            Set<ProductEntity> memberRelations = member.getRelatedProducts();
+            if (memberRelations == null) {
+                memberRelations = new HashSet<>();
+                member.setRelatedProducts(memberRelations);
+            }
+            memberRelations.add(currentProduct);
+        }
+    }
 
     private String mapSortField(String field) {
+        if (field == null) return "id";
         return switch (field) {
             case "price" -> "discountedPrice";
-            case "rating" -> "average";
+            case "rating" -> "averageRating";
             case "createdAt" -> "createdAt";
             case "sold" -> "sold";
             default -> "id";
         };
     }
 
-    @Override
-    @Transactional
-    public ProductDetailDto createProduct(CreateProductRequest request) {
-        ProductEntity product = new ProductEntity();
-        product.setName(request.getName());
-        product.setDescription(request.getDescription());
-        product.setSlug(request.getSlug());
-        product.setDetail(request.getDetail());
-        product.setIsActive(true);
-        product.setCreatedAt(LocalDateTime.now());
-        product.setUpdatedAt(LocalDateTime.now());
-
-        if (request.getRelatedName() != null) {
-            product.setRelatedName(request.getRelatedName());
-        }
-
-        // ✅ Thumbnail upload
-        if (request.getThumbnail() != null && !request.getThumbnail().isEmpty()) {
-            String thumbnailUrl = cloudinaryUtil.uploadThumbnail(request.getThumbnail(), request.getSlug());
-            product.setThumbnail(thumbnailUrl);
-        }
-
-        // ✅ Gán danh mục
-        if (request.getCategoryIds() != null && !request.getCategoryIds().isEmpty()) {
-            List<CategoryEntity> categories = categoryRepository.findAllById(request.getCategoryIds());
-            product.setCategories(categories);
-        }
-
-        // ✅ Lưu product để có ID
-        product = productRepository.save(product);
-
-
-        if (request.getFilters() != null) {
-            for (AttributeRequest attrReq : request.getFilters()) {
-                ProductAttributeValueEntity pav = new ProductAttributeValueEntity();
-                pav.setProduct(product);
-                AttributeEntity attribute = attributeRepository.findByCodeAndIsFilterTrue(attrReq.getCode()).orElseThrow(
-                        () -> new AppException(ErrorCode.NOT_FOUND, "fillter not found")
-                );
-                AttributeValueEntity attributeValue = attributeValueRepository
-                        .findByValueAndAttributeId(attrReq.getValue(),attribute.getId())
-                        .orElseThrow(()->new AppException(ErrorCode.NOT_FOUND,"filter value not found"));
-                pav.setAttribute(attribute);
-                pav.setAttributeValue(attributeValue);
-                pavRepository.save(pav);
-            }
-        }
-
-
-        // ✅ Related products
-        if (request.getSibling() != null) {
-            ProductEntity sibling = productRepository.findById(request.getSibling()).orElseThrow(
-                    () -> new AppException(ErrorCode.NOT_FOUND, "sibling not found")
-            );
-            Set<ProductEntity> relatedProducts = sibling.getRelatedProducts();
-            relatedProducts.add(sibling);
-            product.setRelatedProducts(relatedProducts);
-        }
-
-        // ✅ Medias
-        if (request.getMedias() != null) {
-            for (CreateProductRequest.MediaRequest m : request.getMedias()) {
-                switch (m.getType()){
-                    case IMAGE -> {
-                        MediaEntity media = new MediaEntity();
-                        media.setProduct(product);
-                        media.setMediaType(m.getType());
-                        media.setSortOrder(m.getSortOrder());
-                        media.setUrl(cloudinaryUtil.uploadThumbnail(m.getFile(), request.getSlug() + UUID.randomUUID()));
-                        media.setCreatedAt(LocalDateTime.now());
-                        mediaRepository.save(media);
-                    }
-                    default -> throw new AppException(ErrorCode.EXTERNAL_SERVICE_ERROR,"media chưa support type video");
-                }
-            }
-        }
-
-        // ✅ Variants
-        if (request.getVariants() != null) {
-            for (CreateVariantRequest vReq : request.getVariants()) {
-                VariantEntity variant = new VariantEntity();
-                variant.setProduct(product);
-                variant.setSku(vReq.getSku());
-                variant.setPrice(vReq.getPrice());
-                variant.setIsActive(true);
-                variant.setCreatedAt(LocalDateTime.now());
-                variant.setUpdatedAt(LocalDateTime.now());
-                variantRepository.save(variant);
-
-                // ✅ Thuộc tính biến thể
-                if (vReq.getOptions() != null) {
-                    for (AttributeRequest attrReq : request.getFilters()) {
-                        VariantAttributeValueEntity vav = new VariantAttributeValueEntity();
-                        vav.setVariant(variant);
-                        AttributeEntity attribute = attributeRepository.findByCodeAndIsOptionTrue(attrReq.getCode()).orElseThrow(
-                                () -> new AppException(ErrorCode.NOT_FOUND, "option not found")
-                        );
-                        AttributeValueEntity attributeValue = attributeValueRepository
-                                .findByValueAndAttributeId(attrReq.getValue(),attribute.getId())
-                                .orElseThrow(()->new AppException(ErrorCode.NOT_FOUND,"option value not found"));
-                        vav.setAttribute(attribute);
-                        vav.setAttributeValue(attributeValue);
-                        vavRepo.save(vav);
-                    }
-                }
-            }
-        }
-        return mapToDetail(productRepository.save(product));
-    }
-
-    @Transactional
-    public ProductDetailDto updateProduct(Long id, UpdateProductRequest request) {
-        ProductEntity product = productRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND,"Product not found"));
-
-        if (request.getName() != null) {
-            product.setName(request.getName());
-        }
-
-        if (request.getDescription() != null) {
-            product.setDescription(request.getDescription());
-        }
-
-        if (request.getDetail() != null) {
-            product.setDetail(request.getDetail());
-        }
-
-        if (request.getSlug() != null) {
-            product.setSlug(request.getSlug());
-        }
-
-        if (request.getThumbnail() != null && !request.getThumbnail().isEmpty()) {
-            String imageUrl = cloudinaryUtil.uploadThumbnail(request.getThumbnail(),product.getSlug());
-            product.setThumbnail(imageUrl);
-        }
-
-        if (request.getCategoryIds() != null && !request.getCategoryIds().isEmpty()) {
-            var categories = categoryRepository.findAllById(request.getCategoryIds());
-            product.setCategories(categories);
-        }
-
-        if (request.getFilters() != null) {
-            for (AttributeRequest attrReq : request.getFilters()) {
-                ProductAttributeValueEntity pav = new ProductAttributeValueEntity();
-                pav.setProduct(product);
-                AttributeEntity attribute = attributeRepository.findByCodeAndIsFilterTrue(attrReq.getCode()).orElseThrow(
-                        () -> new AppException(ErrorCode.NOT_FOUND, "fillter not found")
-                );
-                AttributeValueEntity attributeValue = attributeValueRepository
-                        .findByValueAndAttributeId(attrReq.getValue(),attribute.getId())
-                        .orElseThrow(()->new AppException(ErrorCode.NOT_FOUND,"filter value not found"));
-                pav.setAttribute(attribute);
-                pav.setAttributeValue(attributeValue);
-                pavRepository.save(pav);
-            }
-        }
-
-        if (request.getSibling() != null) {
-            ProductEntity sibling = productRepository.findById(request.getSibling()).orElseThrow(
-                    () -> new AppException(ErrorCode.NOT_FOUND, "sibling not found")
-            );
-            Set<ProductEntity> relatedProducts = sibling.getRelatedProducts();
-            relatedProducts.add(sibling);
-            product.setRelatedProducts(relatedProducts);
-        }
-
-        if (request.getRelatedName() != null) {
-            product.setRelatedName(request.getRelatedName());
-        }
-
-        return mapToDetail(productRepository.save(product));
-    }
-
-
     private List<ProductDto> applyPromotions(List<ProductEntity> productEntities) {
-        if (productEntities.isEmpty()) return List.of();
+        if (productEntities == null || productEntities.isEmpty()) return List.of();
         List<Long> productIds = productEntities.stream().map(ProductEntity::getId).toList();
         Map<Long, List<PromotionEntity>> promoMap = promotionService.getActivePromotionsGroupedByProduct(productIds);
         return productEntities.stream()
-                .map(p -> {
-                    List<PromotionEntity> promos = promoMap.getOrDefault(p.getId(), List.of());
-                    BigDecimal discounted = p.getDiscountedPrice() != null
-                            ? p.getDiscountedPrice()
-                            : p.getPrice();
-                    return productMapper.toDto(p, promos);
-                })
+                .map(p -> productMapper.toDto(p, promoMap.getOrDefault(p.getId(), List.of())))
                 .toList();
     }
 
     private Page<ProductDto> applyPromotions(Page<ProductEntity> page) {
+        if (page.isEmpty()) return Page.empty();
         List<Long> productIds = page.getContent().stream().map(ProductEntity::getId).toList();
         Map<Long, List<PromotionEntity>> promoMap = promotionService.getActivePromotionsGroupedByProduct(productIds);
-
-        return page.map(p -> {
-            List<PromotionEntity> promos = promoMap.getOrDefault(p.getId(), List.of());
-
-            BigDecimal discounted = p.getDiscountedPrice() != null
-                    ? p.getDiscountedPrice()
-                    : p.getPrice();
-
-            return productMapper.toDto(p, promos);
-        });
+        return page.map(p -> productMapper.toDto(p, promoMap.getOrDefault(p.getId(), List.of())));
     }
 
     private double calculateBaseScore(ProductEntity p) {
-        // --- Dữ liệu đầu vào giả định: không null ---
-        double rating = p.getAverageRating();      // Đã có COALESCE() trong @Formula
-        long totalRating = p.getTotalRating();     // Đã có COALESCE()
-        int sold = p.getSold();                    // Đã có COALESCE()
-        int stock = p.getStock();                  // Đã có COALESCE()
-        int reserved = p.getReservedStock();       // Đã có COALESCE()
-        LocalDateTime createdAt = p.getCreatedAt(); // Được đảm bảo luôn có (vd. set khi insert)
+        double rating = p.getAverageRating();
+        long totalRating = p.getTotalRating();
+        int sold = p.getSold();
+        int stock = p.getStock();
+        int reserved = p.getReservedStock();
+        LocalDateTime createdAt = p.getCreatedAt();
 
-        // --- Tính toán các thành phần ---
         double availableStock = Math.max(stock - reserved, 0);
-        double stockScore = availableStock > 0 ? 1 : 0; // Ưu tiên sản phẩm còn hàng
+        double stockScore = availableStock > 0 ? 1 : 0;
+        double ratingScore = (rating / 5.0) * Math.log10(totalRating + 1) * 60;
+        double soldScore = Math.log10(sold + 1) * 30;
 
-        // RatingScore: đánh giá cao + nhiều người đánh giá => điểm cao
-        double ratingScore = (rating / 5.0) * Math.log10(totalRating + 1) * 60; // max ~60
-
-        // SoldScore: bán càng nhiều => càng nổi bật
-        double soldScore = Math.log10(sold + 1) * 30; // max ~30
-
-        // RecencyScore: sản phẩm mới (<90 ngày) được cộng điểm nhẹ
         long daysOld = java.time.Duration.between(createdAt, LocalDateTime.now()).toDays();
-        double recencyScore = (daysOld < 90) ? (30 - daysOld * 0.33) : 0; // max 30, giảm dần theo ngày
+        double recencyScore = (daysOld < 90) ? (30 - daysOld * 0.33) : 0;
 
-        // --- Tổng hợp ---
         return ratingScore + soldScore + recencyScore + (stockScore * 10);
     }
 
     private ProductDetailDto mapToDetail(ProductEntity product) {
         Map<Long, List<PromotionEntity>> promoMap =
                 promotionService.getActivePromotionsGroupedByProduct(List.of(product.getId()));
-        List<ProductDetailDto.SiblingDto> siblings = product.getRelatedProducts().stream()
-                .map(sibling ->{
-                    return ProductDetailDto.SiblingDto.builder()
+
+        // Cần đảm bảo relatedProducts được fetch (Lazy loading) trước khi map
+        // Hoặc dùng DTO projection trong Repository để tối ưu
+        List<ProductDetailDto.SiblingDto> siblings = new ArrayList<>();
+        if (product.getRelatedProducts() != null) {
+            siblings = product.getRelatedProducts().stream()
+                    .map(sibling -> ProductDetailDto.SiblingDto.builder()
                             .id(sibling.getId())
                             .name(sibling.getName())
                             .related_name(sibling.getRelatedName())
                             .slug(sibling.getSlug())
                             .thumbnail(sibling.getThumbnail())
-                            .build();
-                }).toList();
+                            .build())
+                    .toList();
+        }
 
         ProductDetailDto productDetailDto = productMapper.toDetailDto(product, promoMap);
         productDetailDto.setSiblings(siblings);
         productDetailDto.setBreadcrumb(categoryService.getBreadcrumbByProductSlug(product.getSlug()));
         return productDetailDto;
     }
-
 }

@@ -96,7 +96,7 @@ public class InventoryServiceImpl implements InventoryService {
                 req.getDir().equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC,
                 req.getOrder()
         );
-        PageRequest pageable = PageRequest.of(req.getPage()-1, req.getSize(), sort);
+        PageRequest pageable = PageRequest.of(req.getPage() - 1, req.getSize(), sort);
 
         Page<InventoryEntity> pageResult = inventoryRepository.searchInventory(
                 req.getLocationId(),
@@ -105,25 +105,42 @@ public class InventoryServiceImpl implements InventoryService {
                 pageable
         );
 
-        // Gom nhóm theo productId
+        // Map để gom nhóm Product
         Map<Long, InventoryDto> inventoryDtoMap = new LinkedHashMap<>();
+
+        // Set để theo dõi Variant đã thêm (tránh trùng lặp)
+        // Key có thể là variantId đơn thuần nếu variantId là unique toàn cục
+        Set<Long> processedVariantIds = new HashSet<>();
 
         for (InventoryEntity inv : pageResult.getContent()) {
             var variant = inv.getVariant();
             var product = variant.getProduct();
 
+            // Nếu variant này đã được xử lý rồi thì bỏ qua ngay
+            if (processedVariantIds.contains(variant.getId())) {
+                continue;
+            }
+
+            // Tạo hoặc lấy InventoryDto của Product
             InventoryDto inventoryDto = inventoryDtoMap.computeIfAbsent(product.getId(), k -> {
                 InventoryDto dto = new InventoryDto();
                 dto.setProductId(product.getId());
                 dto.setProductName(product.getName());
-                dto.setVariants(new ArrayList<>());
+                dto.setVariants(new ArrayList<>()); // Dùng List để trả về
                 return dto;
             });
+
+            // Add variant vào list và đánh dấu đã xử lý
             inventoryDto.getVariants().add(variantMapper.toDto(variant));
+            processedVariantIds.add(variant.getId());
         }
 
-        // Tạo Page giả để wrap vào PageDto (vì PageDto yêu cầu Page<T>)
+        // Tạo Page giả để wrap vào PageDto
         List<InventoryDto> groupedList = new ArrayList<>(inventoryDtoMap.values());
+
+        // Lưu ý: pageResult.getTotalElements() là tổng số dòng Inventory,
+        // không phải tổng số Product sau khi gom nhóm.
+        // Tuy nhiên với UI admin thường chấp nhận được.
         Page<InventoryDto> dtoPage = new PageImpl<>(
                 groupedList,
                 pageable,

@@ -51,7 +51,7 @@ public class ProductController {
     @PreAuthorize("hasAuthority('PRODUCT_CREATE')")
     @Operation(summary = "Thêm sản phẩm", security = { @SecurityRequirement(name = "bearerAuth")})
     @PostMapping(value  = "/create",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponseDto<ProductDetailDto> createProduct(
+    public ApiResponseDto<?> createProduct(
             @Valid
             @ModelAttribute CreateProductRequest req
     ) {
@@ -59,8 +59,8 @@ public class ProductController {
     }
 
     @PreAuthorize("hasAuthority('PRODUCT_UPDATE')")
-    @Operation(summary = "Thêm sản phẩm", security = { @SecurityRequirement(name = "bearerAuth")})
-    @PutMapping(value  = "/update/{productId}",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "edit sản phẩm", security = { @SecurityRequirement(name = "bearerAuth")})
+    @PutMapping(value  = "/edit/{productId}",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponseDto<ProductDetailDto> updateProduct(
             @PathVariable Long productId,
             @Valid
