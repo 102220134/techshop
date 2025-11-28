@@ -8,8 +8,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @Builder
-@Setter
-@Getter
 public record VariantDto(
         long id,
         String sku,
