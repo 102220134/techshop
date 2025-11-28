@@ -28,8 +28,8 @@ public class InventoryEntity {
     @JoinColumn(name="location_id", nullable=false)
     private InventoryLocationEntity inventoryLocation;
 
-    private int stock = 0;
-    private int reservedStock = 0;
+    private Integer stock = 0;
+    private Integer reservedStock = 0;
     private LocalDateTime updatedAt;
 
     public void addReservedStock(int quantity){
