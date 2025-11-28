@@ -17,7 +17,7 @@ import java.util.List;
 @RequestMapping("/api/public/attribute")
 @RequiredArgsConstructor
 @Tag(name = "Thuộc tính của sản phẩm", description = "Thuộc tính gồm thuộc tính dùng option hoặc dùng filter")
-public class AttributeController {
+public class PublicAttributeController {
     private final AttributeService filterService;
     @GetMapping("filter/{*slug}")
     @Operation(summary = "Để tạo dynamic filter cho sản phẩm")
@@ -28,19 +28,4 @@ public class AttributeController {
         return response;
     }
 
-    @GetMapping("filter")
-    @Operation(summary = "Dùng để thêm thuộc tính filter cho lúc tạo/sửa sản phẩm")
-    public ApiResponseDto<List<AttributeDto>> getAllFilter() {
-        ApiResponseDto<List<AttributeDto>> response = new ApiResponseDto<>();
-        response.setData(filterService.getAllAttributeFilter());
-        return response;
-    }
-
-    @GetMapping("option")
-    @Operation(summary = "Dùng để thêm thuộc tính option cho lúc tạo/sửa sản phẩm")
-    public ApiResponseDto<List<AttributeDto>> getAllOption() {
-        ApiResponseDto<List<AttributeDto>> response = new ApiResponseDto<>();
-        response.setData(filterService.getAllAttributeOption());
-        return response;
-    }
 }

@@ -47,7 +47,11 @@ public class SwaggerConfig {
     public GroupedOpenApi productManagerApi() {
         return GroupedOpenApi.builder()
                 .group("Product")
-                .pathsToMatch("/api/private/product/**")
+                .pathsToMatch(
+                        "/api/private/product/**",
+                        "/api/private/attribute/**",
+                        "/api/private/variant/**"
+                )
                 .displayName("Product APIs")
                 .build();
     }

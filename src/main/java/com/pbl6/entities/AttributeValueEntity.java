@@ -27,6 +27,7 @@ public class AttributeValueEntity {
     private String label;
     private LocalDateTime createdAt;
 
+
     @OneToMany(mappedBy="attributeValue", fetch=FetchType.LAZY)
     private List<ProductAttributeValueEntity> productValues;
 

@@ -28,11 +28,15 @@ public class AttributeEntity {
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy="attribute", fetch=FetchType.LAZY)
-    private List<AttributeValueEntity> values;
+    private Set<AttributeValueEntity> values;
 
     @OneToMany(mappedBy="attribute", fetch=FetchType.LAZY)
     private List<ProductAttributeValueEntity> productValues;
 
     @OneToMany(mappedBy="attribute", fetch=FetchType.LAZY)
     private List<VariantAttributeValueEntity> variantValues;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private CategoryEntity category;
 }
