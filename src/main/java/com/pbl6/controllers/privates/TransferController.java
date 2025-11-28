@@ -47,13 +47,12 @@ public class TransferController {
         return new ApiResponseDto<>(transferService.createTransfer(req));
     }
 
-    // --- CÁC HÀM UPDATE TRẠNG THÁI (ĐÃ REFACTOR) ---
 
     @PreAuthorize("hasAuthority('INVENTORY_READ')")
     @PutMapping("/{id}/confirm")
     @Operation(summary = "Xác nhận phiếu (DRAFT -> CONFIRMED)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> confirmTransfer(@PathVariable long id) {
-        transferService.updateTransferStatus(id, TransferStatus.CONFIRMED);
+        transferService.confirmTransfer(id);
         return new ApiResponseDto<>();
     }
 
@@ -61,7 +60,7 @@ public class TransferController {
     @PutMapping("/{id}/cancel")
     @Operation(summary = "Xác nhận phiếu (DRAFT -> CANCELD)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> cancelTransfer(@PathVariable long id) {
-        transferService.updateTransferStatus(id, TransferStatus.CANCELLED);
+        transferService.cancelTransfer(id);
         return new ApiResponseDto<>();
     }
 
@@ -69,7 +68,7 @@ public class TransferController {
     @PutMapping("/{id}/start")
     @Operation(summary = "Bắt đầu xuất kho (CONFIRMED -> TRANSFERRING)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<Void> startTransfer(@PathVariable Long id) {
-        transferService.updateTransferStatus(id, TransferStatus.TRANSFERRING);
+        transferService.startTransfer(id);
         return new ApiResponseDto<>();
     }
 
@@ -77,11 +76,10 @@ public class TransferController {
     @PutMapping("/{id}/complete")
     @Operation(summary = "Hoàn thành nhập kho (TRANSFERRING -> COMPLETED)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<Void> completeTransfer(@PathVariable Long id) {
-        transferService.updateTransferStatus(id, TransferStatus.COMPLETED);
+        transferService.completeTransfer(id);
         return new ApiResponseDto<>();
     }
 
-    // (Hàm Delete giữ nguyên logic cũ vì nó là "xóa" chứ không phải "cập nhật")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('INVENTORY_READ')")
     @Operation(summary = "Xoá phiếu chuyển (Chỉ DRAFT)", security = {@SecurityRequirement(name = "bearerAuth")})

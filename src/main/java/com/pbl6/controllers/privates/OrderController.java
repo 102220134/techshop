@@ -78,16 +78,6 @@ public class OrderController {
         return new ApiResponseDto<>("Order status updated to DELIVERING");
     }
 
-    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
-    @PutMapping("/delivered/{orderId}")
-    @Operation(summary = "Cập nhật Đã Giao Hàng (DELIVERING -> DELIVERED)", security = { @SecurityRequirement(name = "bearerAuth")})
-    public ApiResponseDto<String> markAsDelivered(
-            @PathVariable Long orderId
-    ) {
-        // Tương tự, logic này trong OrderService sẽ gọi sang DeliveryService
-        orderService.markAsDelivered(orderId);
-        return new ApiResponseDto<>("Order status updated to DELIVERED");
-    }
 
     @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
     @PutMapping("/complete/{orderId}")
@@ -100,16 +90,6 @@ public class OrderController {
         return new ApiResponseDto<>("Order completed successfully");
     }
 
-    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
-    @PutMapping("/return/{orderId}")
-    @Operation(summary = "Đơn hàng bị trả (VD: FAILED -> RETURNED)", security = { @SecurityRequirement(name = "bearerAuth")})
-    public ApiResponseDto<String> returnOrder(
-            @PathVariable Long orderId
-    ) {
-        // Logic này sẽ gọi DeliveryService để hoàn kho
-        orderService.returnOrder(orderId);
-        return new ApiResponseDto<>("Order marked as RETURNED");
-    }
 
     @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
     @PutMapping("/cancel/{orderId}")

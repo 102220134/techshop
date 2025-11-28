@@ -28,8 +28,9 @@ public interface TransferService {
 
     void startTransfer(Long transferId);
     void completeTransfer(Long transferId);
-    public void deleteTransfer(Long transferId);
-    void updateTransferStatus(Long transferId, TransferStatus newStatus);
+    void deleteTransfer(Long transferId);
+//    void updateTransferStatus(Long transferId, TransferStatus newStatus);
+    void cancelTransfer(Long id);
 
 //    TransferDto createDelivery(long id);
 }
