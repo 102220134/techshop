@@ -41,4 +41,5 @@ public interface ReservationRepository extends JpaRepository<ReservationEntity, 
     );
     List<ReservationEntity> findByTransferId(Long transferId);
     List<ReservationEntity> findByDeliveryId(Long deliveryId);
+    Page<ReservationEntity> findByDeliveryId(Long deliveryId,Pageable pageable);
 }

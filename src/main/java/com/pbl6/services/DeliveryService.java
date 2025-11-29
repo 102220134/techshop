@@ -1,7 +1,11 @@
 package com.pbl6.services;
 
+import com.pbl6.dtos.request.inventory.delivery.DeliveryDetailRequest;
+import com.pbl6.dtos.request.inventory.delivery.ListDeliveryRequest;
 import com.pbl6.dtos.request.inventory.delivery.UpdateTrackingRequest;
+import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.inventory.delivery.DeliveryDto;
+import com.pbl6.dtos.response.inventory.delivery.DeliveryItemDto;
 import com.pbl6.enums.DeliveryStatus;
 
 import java.util.List;
@@ -25,4 +29,8 @@ public interface DeliveryService {
      * Đây là hàm "động cơ" chính, được gọi bởi OrderService.
      */
     void updateDeliveryStatus(Long deliveryId, DeliveryStatus newStatus);
+
+    PageDto<DeliveryDto> getDelivery(ListDeliveryRequest req);
+
+    PageDto<DeliveryItemDto> getDeliveryItems(long id, DeliveryDetailRequest request);
 }

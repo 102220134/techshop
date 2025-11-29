@@ -10,6 +10,7 @@ import java.util.List;
 @Getter
 @AllArgsConstructor
 @Schema(name = "CategoryDto")
+@Builder
 public class CategoryDto {
     private Long id;
     private String name;

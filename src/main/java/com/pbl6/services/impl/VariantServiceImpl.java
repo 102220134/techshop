@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pbl6.dtos.request.product.AttributeRequest;
 import com.pbl6.dtos.request.product.CreateVariantRequest;
 import com.pbl6.dtos.request.product.UpdateVariantRequest;
+import com.pbl6.dtos.response.PageDto;
+import com.pbl6.dtos.response.inventory.GR.GRDto;
 import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.entities.*;
 import com.pbl6.exceptions.AppException;
@@ -16,6 +18,10 @@ import com.pbl6.utils.CloudinaryUtil;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -154,6 +160,20 @@ public class VariantServiceImpl implements VariantService {
         entityManager.refresh(savedVariant);
 
         return variantMapper.toDto(savedVariant);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageDto<VariantDto> searchVariant(int page, int size, String keyword) {
+
+        // page từ FE bắt đầu = 1
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("id").descending());
+
+        Page<VariantEntity> result = variantRepository.searchVariant(keyword.trim(), pageable);
+
+        Page<VariantDto> dtoPage = result.map(variantMapper::toDto);
+
+        return new PageDto<>(dtoPage);
     }
 
     // Helper method: Đã thêm logic lọc trùng lặp

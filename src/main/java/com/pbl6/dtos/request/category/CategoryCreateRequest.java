@@ -15,8 +15,8 @@ public class CategoryCreateRequest {
     private String name;
     @NotBlank(message = "REQUIRED_FIELD_MISSING")
     private String slug;
+    @NotNull
     private Long parentId;
-    @NotBlank(message = "REQUIRED_FIELD_MISSING")
     private String categoryType;
     @NotNull(message = "REQUIRED_FIELD_MISSING")
     private Boolean isActive = true;

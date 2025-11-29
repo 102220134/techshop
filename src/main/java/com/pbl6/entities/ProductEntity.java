@@ -76,11 +76,15 @@ public class ProductEntity implements Activatable {
     @ManyToMany(mappedBy = "likedProducts", fetch = FetchType.LAZY)
     private Set<UserEntity> likedBys;
 
-    @Formula("(SELECT MIN(v.price) FROM variants v WHERE v.product_id = id AND v.is_active = 1)")
+    @Formula("COALESCE((SELECT MIN(v.price) FROM variants v WHERE v.product_id = id AND v.is_active = 1), 0)")
     private BigDecimal price;
 
-    @Formula("(SELECT MIN(vep.effective_price) FROM variant_effective_price vep INNER JOIN variants v ON v.id = vep.variant_id WHERE vep.product_id = id AND v.is_active = 1)")
+    @Formula("COALESCE((SELECT MIN(vep.effective_price) " +
+             "FROM variant_effective_price vep " +
+             "INNER JOIN variants v ON v.id = vep.variant_id " +
+             "WHERE vep.product_id = id AND v.is_active = 1), 0)")
     private BigDecimal discountedPrice;
+
 
     @Formula("(SELECT COALESCE(SUM(i.stock), 0) FROM variants v LEFT JOIN inventories i ON i.variant_id = v.id WHERE v.product_id = id AND v.is_active = 1)")
     private Integer stock;

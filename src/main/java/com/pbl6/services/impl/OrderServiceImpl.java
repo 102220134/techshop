@@ -63,44 +63,175 @@ public class OrderServiceImpl implements OrderService {
     // ========================================================================
     // CREATE ORDER
     // ========================================================================
-
     @Override
-    @Transactional
-    public OrderEntity createOrder(CreateOrderRequest req) {
-        UserEntity buyer = userRepository.findById(req.getUserId())
-                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "User not found"));
 
+    @Transactional
+
+    public OrderEntity createOrder(CreateOrderRequest req) {
+        UserEntity buyer = userRepository.findById(req.getUserId()).get();
+        // Chuẩn bị store (nếu có)
         StoreEntity store = null;
         if (req.getStoreId() != null) {
             store = storeRepository.findById(req.getStoreId())
                     .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Store not found"));
         }
+        // Snapshot địa chỉ nhận hàng
+        AddressSnapshot snapshot = AddressSnapshot.builder()
+                .name(req.getFullName())
+                .phone(req.getPhone())
+                .line(req.getLine())
+                .ward(req.getWard())
+                .district(req.getDistrict())
+                .province(req.getProvince())
+                .build();
+        // Map variants
+        Map<Long, VariantEntity> variantMap = variantRepository.findAllById(
+                req.getItems().stream().map(OrderItemRequest::getVariantId).toList()
+        ).stream().collect(Collectors.toMap(VariantEntity::getId, v -> v));
+        // Lấy danh sách productId để áp khuyến mãi
+        List<Long> productIds = variantMap.values().stream()
+                .map(v -> v.getProduct().getId())
+                .distinct()
+                .toList();
+        Map<Long, List<PromotionEntity>> promotionMap =
+                promotionService.getActivePromotionsGroupedByProduct(productIds);
+        // ----------------- Tính toán tổng tiền -----------------
+        BigDecimal orderSubtotal = BigDecimal.ZERO;
+        List<OrderItemEntity> orderItems = new ArrayList<>();
+        for (OrderItemRequest itemReq : req.getItems()) {
+            VariantEntity variant = variantMap.get(itemReq.getVariantId());
+            entityUtil.ensureActive(variant, false);
+            List<PromotionEntity> promos = promotionMap.getOrDefault(
+                    variant.getProduct().getId(), List.of()
+            );
+            BigDecimal basePrice = variant.getPrice();
+            BigDecimal discountedPrice = variant.getDiscountedPrice();
+            BigDecimal itemSubtotal = discountedPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            orderSubtotal = orderSubtotal.add(itemSubtotal);
+            orderItems.add(OrderItemEntity.builder()
+                    .order(null) // gán sau khi order được save
+                    .variant(variant)
+                    .productName(variant.getProduct().getName())
+                    .sku(variant.getSku())
+                    .price(basePrice)
+                    .quantity(itemReq.getQuantity())
+                    .discountAmount(basePrice.subtract(discountedPrice))
+                    .finalPrice(discountedPrice)
+                    .promotions(promos)
+                    .subtotal(itemSubtotal)
+                    .build());
+        }
 
-        return processOrderCreation(req, buyer, store);
+
+        // ----------------- Khởi tạo entity -----------------
+
+        OrderEntity order = OrderEntity.builder()
+                .user(buyer)
+                .store(store)
+                .status(OrderStatus.PENDING)
+                .paymentMethod(req.getPaymentMethod())
+                .receiveMethod(req.getReceiveMethod())
+                .snapshot(snapshot)
+                .note(req.getNote())
+                .isOnline(req.getIsOnline())
+                .subtotal(orderSubtotal)
+                .voucherDiscount(BigDecimal.ZERO)
+                .totalAmount(orderSubtotal) // có thể trừ voucher sau này
+                .paidAmount(BigDecimal.ZERO)
+                .remainingAmount(orderSubtotal)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        // Lưu đơn hàng
+        order = orderRepository.save(order);
+        // Gán lại order cho từng item và lưu
+        for (OrderItemEntity item : orderItems) {
+            item.setOrder(order);
+        }
+        orderItemRepository.saveAll(orderItems);
+        order.setOrderItems(orderItems);
+        return order;
     }
+
 
     @Override
     @Transactional
     public OrderEntity createOrderManual(CreateOrderRequest req) {
         UserEntity currentUser = authenticationUtil.getCurrentUser();
-
-        // 1. Validate Store & Customer
-        StoreEntity store = entityUtil.ensureExists(storeRepository.findById(req.getStoreId()), "Store not found");
-        UserEntity customer = entityUtil.ensureExists(userRepository.findById(req.getUserId()), "Customer not found");
-
-        // 2. Validate Permissions
-        if (!currentUser.isAdmin()) {
-            if (!Objects.equals(currentUser.getStoreId(), req.getStoreId())) {
-                throw new AppException(ErrorCode.FORBIDDEN, "Bạn không thể tạo đơn cho cửa hàng khác");
+        // --- Kiểm tra và lấy store ---
+        StoreEntity store = entityUtil.ensureExists(
+                storeRepository.findById(req.getStoreId()),
+                "Store not found"
+        );
+        // --- Kiểm tra và lấy khách hàng ---
+        UserEntity customer = entityUtil.ensureExists(
+                userRepository.findById(req.getUserId()),
+                "Customer not found"
+        );
+        UserEntity sale; // nhân viên phụ trách đơn hàng
+        if (currentUser.isAdmin()) {
+            // ✅ ADMIN có thể chọn bất kỳ sale nào
+            sale = null;
+            if (req.getSaleId() != null) {
+                sale = entityUtil.ensureExists(
+                        userRepository.findById(req.getSaleId()),
+                        "Sale not found"
+                );
             }
+        } else {
+            // ✅ NHÂN VIÊN bán hàng
+            // Kiểm tra cửa hàng của họ có trùng storeId hay không
+            if (!currentUser.getStoreId().equals(req.getStoreId())) {
+                throw new AppException(ErrorCode.FORBIDDEN, "You cannot create order for another store");
+            }
+            // Kiểm tra saleId có trùng với chính họ không
             if (req.getSaleId() != null && !req.getSaleId().equals(currentUser.getId())) {
-                throw new AppException(ErrorCode.FORBIDDEN, "Sale ID không khớp với người dùng hiện tại");
+                throw new AppException(ErrorCode.FORBIDDEN, "Sale ID does not match current user");
             }
+            sale = currentUser;
         }
-
-        req.setIsOnline(false); // Đơn tại quầy
-        return processOrderCreation(req, customer, store);
+        req.setIsOnline(false);
+        OrderEntity order = createOrder(req);
+        return order;
     }
+
+//    @Override
+//    @Transactional
+//    public OrderEntity createOrder(CreateOrderRequest req) {
+//        UserEntity buyer = userRepository.findById(req.getUserId())
+//                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "User not found"));
+//
+//        StoreEntity store = null;
+//        if (req.getStoreId() != null) {
+//            store = storeRepository.findById(req.getStoreId())
+//                    .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "Store not found"));
+//        }
+//
+//        return processOrderCreation(req, buyer, store);
+//    }
+//
+//    @Override
+//    @Transactional
+//    public OrderEntity createOrderManual(CreateOrderRequest req) {
+//        UserEntity currentUser = authenticationUtil.getCurrentUser();
+//
+//        // 1. Validate Store & Customer
+//        StoreEntity store = entityUtil.ensureExists(storeRepository.findById(req.getStoreId()), "Store not found");
+//        UserEntity customer = entityUtil.ensureExists(userRepository.findById(req.getUserId()), "Customer not found");
+//
+//        // 2. Validate Permissions
+//        if (!currentUser.isAdmin()) {
+//            if (!Objects.equals(currentUser.getStoreId(), req.getStoreId())) {
+//                throw new AppException(ErrorCode.FORBIDDEN, "Bạn không thể tạo đơn cho cửa hàng khác");
+//            }
+//            if (req.getSaleId() != null && !req.getSaleId().equals(currentUser.getId())) {
+//                throw new AppException(ErrorCode.FORBIDDEN, "Sale ID không khớp với người dùng hiện tại");
+//            }
+//        }
+//
+//        req.setIsOnline(false); // Đơn tại quầy
+//        return processOrderCreation(req, customer, store);
+//    }
 
     private OrderEntity processOrderCreation(CreateOrderRequest req, UserEntity buyer, StoreEntity store) {
         // ... (Logic tạo AddressSnapshot, VariantMap, Promotion giữ nguyên để tiết kiệm không gian)
@@ -116,7 +247,8 @@ public class OrderServiceImpl implements OrderService {
         Map<Long, VariantEntity> variantMap = variantRepository.findAllById(variantIds).stream()
                 .collect(Collectors.toMap(VariantEntity::getId, Function.identity()));
 
-        if (variantMap.size() != variantIds.size()) throw new AppException(ErrorCode.NOT_FOUND, "Product variant not found");
+        if (variantMap.size() != variantIds.size())
+            throw new AppException(ErrorCode.NOT_FOUND, "Product variant not found");
 
         List<Long> productIds = variantMap.values().stream().map(v -> v.getProduct().getId()).distinct().toList();
         Map<Long, List<PromotionEntity>> promotionMap = promotionService.getActivePromotionsGroupedByProduct(productIds);
@@ -275,8 +407,10 @@ public class OrderServiceImpl implements OrderService {
         Set<Long> warehouseLocIds = new HashSet<>();
 
         reservations.forEach(res -> {
-            if (InventoryLocationType.STORE.equals(res.getLocation().getType())) storeLocIds.add(res.getLocation().getId());
-            else if (InventoryLocationType.WAREHOUSE.equals(res.getLocation().getType())) warehouseLocIds.add(res.getLocation().getId());
+            if (InventoryLocationType.STORE.equals(res.getLocation().getType()))
+                storeLocIds.add(res.getLocation().getId());
+            else if (InventoryLocationType.WAREHOUSE.equals(res.getLocation().getType()))
+                warehouseLocIds.add(res.getLocation().getId());
         });
 
         Map<Long, StoreEntity> storeMap = storeRepository.findByInventoryLocationIdIn(storeLocIds).stream()
@@ -293,10 +427,16 @@ public class OrderServiceImpl implements OrderService {
 
             if (type == InventoryLocationType.STORE) {
                 StoreEntity s = storeMap.get(locId);
-                if (s != null) { name = s.getName(); address = s.getDisplayAddress(); }
+                if (s != null) {
+                    name = s.getName();
+                    address = s.getDisplayAddress();
+                }
             } else if (type == InventoryLocationType.WAREHOUSE) {
                 WarehouseEntity w = warehouseMap.get(locId);
-                if (w != null) { name = w.getName(); address = "Kho trung chuyển"; }
+                if (w != null) {
+                    name = w.getName();
+                    address = "Kho trung chuyển";
+                }
             }
 
             return OrderDetailDto.SourceGoods.builder()
@@ -319,7 +459,8 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void confirmOrder(Long orderId) {
         OrderEntity order = entityUtil.ensureExists(orderRepository.findById(orderId));
-        if (order.getStatus() != OrderStatus.PENDING) throw new AppException(ErrorCode.VALIDATION_ERROR, "Chỉ xác nhận đơn PENDING");
+        if (order.getStatus() != OrderStatus.PENDING)
+            throw new AppException(ErrorCode.VALIDATION_ERROR, "Chỉ xác nhận đơn PENDING");
 
         order.setStatus(OrderStatus.CONFIRMED);
         List<ReservationEntity> reservations = reservationRepository.findByOrderId(orderId);

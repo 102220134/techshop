@@ -19,6 +19,14 @@ public class VariantMapper {
                 .toList();
     }
 
+    public List<VariantDto> toDtoListIncludeInactive(Set<VariantEntity> variants) {
+        if (variants == null) return List.of();
+
+        return variants.stream()
+                .map(this::toDto)
+                .toList();
+    }
+
     public VariantDto toDto(VariantEntity v) {
         return VariantDto.builder()
                 .id(v.getId())

@@ -1,5 +1,7 @@
 package com.pbl6.mapper;
 
+import com.pbl6.dtos.response.AttributeDto;
+import com.pbl6.dtos.response.CategoryDto;
 import com.pbl6.dtos.response.product.ProductDetailDto;
 import com.pbl6.dtos.response.product.ProductDto;
 import com.pbl6.entities.ProductEntity;
@@ -77,7 +79,7 @@ public class ProductMapper {
                 .isAvailable(product.getAvailableStock() > 0)
                 .isActive(product.getIsActive())
                 .rating(rating)
-                .variants(variantMapper.toDtoList(product.getVariants()))
+                .variants(variantMapper.toDtoListIncludeInactive(product.getVariants()))
                 .medias(mediaMapper.toDtoList(product.getMedias()))
                 .promotions(promos.isEmpty() ? null :
                         promos.stream().map(promotionMapper::toDto).toList())
