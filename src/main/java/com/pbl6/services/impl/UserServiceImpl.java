@@ -149,13 +149,13 @@ public class UserServiceImpl implements UserService {
             return userMapper.toUserDetailDto(targetUser);
         }
 
-        // ✅ Nếu có quyền đọc khách hàng
-        if (currentUser.hasAuthority("USER_READ_CUSTOMER") && targetUser.isCustomer()) {
-            return userMapper.toUserDetailDto(targetUser);
-        }
+//        // ✅ Nếu có quyền đọc khách hàng
+//        if (currentUser.hasAuthority("USER_READ_CUSTOMER") && targetUser.isCustomer()) {
+//            return userMapper.toUserDetailDto(targetUser);
+//        }
 
         // ✅ Nếu có quyền đọc nhân viên
-        if (currentUser.hasAuthority("USER_READ_STAFF") && targetUser.isStaff()) {
+        if (currentUser.hasAuthority("USER_READ_STAFF")) {
             return userMapper.toUserDetailDto(targetUser);
         }
 

@@ -41,7 +41,7 @@ public class UserController {
         return new ApiResponseDto<>(userService.searchStaffs(request));
     }
 
-    @PreAuthorize("hasAnyAuthority('USER_READ_CUSTOMER','USER_READ_STAFF')")
+    @PreAuthorize("hasAuthority('USER_READ_STAFF')")
     @GetMapping("/{userId}")
     @Operation(summary = "Xem thông tin người dùng", security = { @SecurityRequirement(name = "bearerAuth") })
     public ApiResponseDto<UserDetailDto> getUserInfo(@PathVariable Long userId) {

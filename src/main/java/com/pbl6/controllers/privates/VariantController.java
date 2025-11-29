@@ -27,14 +27,17 @@ public class VariantController {
 
     private final VariantService variantService;
 
-//    @PreAuthorize("hasAuthority('PRODUCT_READ')")
-//    @Operation(summary = "thông tin variant", security = { @SecurityRequirement(name = "bearerAuth")})
-//    @GetMapping("/{variantId}")
-//    public ApiResponseDto<VariantDto> getVariant(
-//            @PathVariable long variantId
-//    ) {
-//        return new ApiResponseDto<>(variantService.getVariantById(variantId));
-//    }
+    @PreAuthorize("hasAuthority('PRODUCT_READ')")
+    @Operation(summary = "Tìm kiếm variant", security = { @SecurityRequirement(name = "bearerAuth")})
+    @GetMapping("/search")
+    public ApiResponseDto<PageDto<VariantDto>> getVariant(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "") String keyword
+    ) {
+        return new ApiResponseDto<>(variantService.searchVariant(page, size, keyword));
+    }
+
 
     @PreAuthorize("hasAuthority('PRODUCT_CREATE')")
     @Operation(summary = "thông tin variant", security = { @SecurityRequirement(name = "bearerAuth")})

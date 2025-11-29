@@ -27,7 +27,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItemEntity, Long
                    "JOIN orders o ON oi.order_id = o.id " +
                    "JOIN variants v ON oi.variant_id = v.id " +
                    "WHERE o.created_at BETWEEN :start AND :end " +
-//                   "AND o.status = 'COMPLETED' " +
+                   "AND o.status = 'COMPLETED' " +
                    "GROUP BY v.product_id, oi.product_name, v.thumbnail " +
                    "ORDER BY totalSold DESC " +
                    "LIMIT :limit",

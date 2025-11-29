@@ -1,6 +1,8 @@
 package com.pbl6.controllers.privates;
 
 import com.pbl6.dtos.request.inventory.delivery.CreateDeliveryRequest;
+import com.pbl6.dtos.request.inventory.delivery.DeliveryDetailRequest;
+import com.pbl6.dtos.request.inventory.delivery.ListDeliveryRequest;
 import com.pbl6.dtos.request.inventory.transfer.CreateTransferRequest;
 import com.pbl6.dtos.request.inventory.transfer.ListTransferRequest;
 import com.pbl6.dtos.request.inventory.transfer.TransferDetailRequest;
@@ -70,5 +72,20 @@ public class DeliveryController {
     public ApiResponseDto<?> failed(@PathVariable long id) {
         deliveryService.updateDeliveryStatus(id,DeliveryStatus.FAILED);
         return new ApiResponseDto<>();
+    }
+    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @GetMapping("/list")
+    @Operation(summary = "Danh sách phiếu giao hàng", security = {@SecurityRequirement(name = "bearerAuth")})
+    public ApiResponseDto<?> getTransfers(@ParameterObject ListDeliveryRequest req) {
+        return new ApiResponseDto<>(deliveryService.getDelivery(req));
+    }
+
+    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @GetMapping("/detail/{id}")
+    @Operation(summary = "Xem chi tiết phiếu chuyển", security = {@SecurityRequirement(name = "bearerAuth")})
+    public ApiResponseDto<?> getTransferDetail(
+            @PathVariable long id,
+            @ParameterObject DeliveryDetailRequest request) {
+        return new ApiResponseDto<>(deliveryService.getDeliveryItems(id, request));
     }
 }

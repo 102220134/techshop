@@ -3,13 +3,16 @@ package com.pbl6.services.impl;
 import com.pbl6.dtos.request.inventory.reservation.ListReservationRequest;
 import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.StoreDto;
+import com.pbl6.dtos.response.inventory.InventoryLocationDto;
 import com.pbl6.dtos.response.inventory.reservation.ReservationDto;
 import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.entities.OrderEntity;
 import com.pbl6.entities.OrderItemEntity;
 import com.pbl6.entities.ReservationEntity;
 import com.pbl6.mapper.StoreMapper;
+import com.pbl6.repositories.InventoryLocationRepository;
 import com.pbl6.repositories.ReservationRepository;
+import com.pbl6.services.InventoryLocationService;
 import com.pbl6.services.ReservationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,10 +23,12 @@ import org.springframework.stereotype.Service;
 public class ReservationServiceImpl implements ReservationService {
     private final ReservationRepository reservationRepository;
     private final StoreMapper storeMapper;
+    private final InventoryLocationService inventoryLocationService;
 
-    public ReservationServiceImpl(ReservationRepository reservationRepository, StoreMapper storeMapper) {
+    public ReservationServiceImpl(ReservationRepository reservationRepository, StoreMapper storeMapper, InventoryLocationRepository inventoryLocationRepository, InventoryLocationService inventoryLocationService) {
         this.reservationRepository = reservationRepository;
         this.storeMapper = storeMapper;
+        this.inventoryLocationService = inventoryLocationService;
     }
 
     @Override
@@ -50,8 +55,11 @@ public class ReservationServiceImpl implements ReservationService {
         if(order.getStore()!=null){
             storeDto = storeMapper.toDto(order.getStore());
         }
+
+
         return ReservationDto.builder()
                 .id(e.getId())
+                .source(inventoryLocationService.toDto(e.getLocation()))
                 .orderId(order.getId())
                 .destination(storeDto)
                 .status(e.getStatus())

@@ -43,7 +43,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
                    "    COUNT(o.id) as orderCount " +
                    "FROM orders o " +
                    "WHERE o.created_at BETWEEN :start AND :end " +
-//                   "AND o.status = 'COMPLETED' " +
+                   "AND o.status = 'COMPLETED' " +
                    "GROUP BY label " +
                    "ORDER BY label ASC",
             nativeQuery = true)
@@ -63,13 +63,11 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
     @Query("SELECT o.paymentMethod, COUNT(o) FROM OrderEntity o " +
            "WHERE o.createdAt BETWEEN :start AND :end " +
-//           "AND o.status = 'DELIVERED' " +
            "GROUP BY o.paymentMethod")
     List<Object[]> countOrdersByPaymentMethod(LocalDateTime start, LocalDateTime end);
 
     @Query("SELECT o.receiveMethod, COUNT(o) FROM OrderEntity o " +
            "WHERE o.createdAt BETWEEN :start AND :end " +
-//           "AND o.status = 'DELIVERED' " +
            "GROUP BY o.receiveMethod")
     List<Object[]> countOrdersByReceiveMethod(LocalDateTime start, LocalDateTime end);
 
@@ -78,7 +76,6 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
                    "    COUNT(o.id) AS count " +
                    "FROM orders o " +
                    "WHERE o.created_at BETWEEN :start AND :end " +
-//                   "AND o.status = 'DELIVERED' " +
                    "GROUP BY channel",
             nativeQuery = true)
     List<Object[]> countOrdersByChannel(LocalDateTime start, LocalDateTime end);
@@ -92,6 +89,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
                    "FROM orders o " +
                    "JOIN users u ON o.user_id = u.id " +
                    "WHERE o.created_at BETWEEN :start AND :end " +
+                   "AND o.status = 'COMPLETED' " +
 //                   "AND u.is_guest = FALSE " +
                    "GROUP BY u.id, u.name, u.email " +
                    "ORDER BY totalSpent DESC " +

@@ -1,7 +1,14 @@
 package com.pbl6.services.impl;
 
+import com.pbl6.dtos.request.inventory.delivery.DeliveryDetailRequest;
+import com.pbl6.dtos.request.inventory.delivery.ListDeliveryRequest;
 import com.pbl6.dtos.request.inventory.delivery.UpdateTrackingRequest;
+import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.inventory.delivery.DeliveryDto;
+import com.pbl6.dtos.response.inventory.delivery.DeliveryItemDto;
+import com.pbl6.dtos.response.inventory.transfer.TransferDto;
+import com.pbl6.dtos.response.inventory.transfer.TransferItemDto;
+import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.entities.*;
 import com.pbl6.enums.*;
 import com.pbl6.exceptions.AppException;
@@ -10,6 +17,9 @@ import com.pbl6.repositories.*;
 import com.pbl6.services.DeliveryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -112,6 +122,36 @@ public class DeliveryServiceImpl implements DeliveryService {
         reservationRepository.saveAll(reservations);
 
         checkAndUpdateOrderStatus(reservations.get(0).getOrder());
+    }
+
+    @Override
+    public PageDto<DeliveryDto> getDelivery(ListDeliveryRequest req) {
+        PageRequest pageable = getPageRequest(req.getPage(), req.getSize(), req.getDir(), req.getOrder());
+        Page<DeliveryDto> pageResult = deliveryRepository.findByStatus(req.getStatus(), pageable).map(this::toDto);
+        return new PageDto<>(pageResult);
+    }
+
+    @Override
+    public PageDto<DeliveryItemDto> getDeliveryItems(long id, DeliveryDetailRequest req) {
+        if (!deliveryRepository.existsById(id)) {
+            throw new AppException(ErrorCode.NOT_FOUND, "Transfer not found");
+        }
+        PageRequest pageable = getPageRequest(req.getPage(), req.getSize(), req.getDir(), req.getOrder());
+        Page<DeliveryItemDto> pageResult = reservationRepository.findByDeliveryId(id,pageable).map(
+                r-> DeliveryItemDto.builder()
+                        .sku(r.getOrderItem().getSku())
+                        .variantId(r.getOrderItem().getVariant().getId())
+                        .thumbnail(r.getOrderItem().getThumbnail())
+                        .attributes(r.getOrderItem().getVariant().getVariantAttributeValues().stream()
+                                .map(val -> VariantDto.AttributeDto.builder()
+                                        .code(val.getAttribute().getCode())
+                                        .label(val.getAttribute().getLabel())
+                                        .value(val.getAttributeValue().getLabel()).build())
+                                .toList())
+                        .quantity(r.getQuantity())
+                        .build()
+        );
+        return new PageDto<>(pageResult);
     }
 
     // ========================================================================
@@ -414,5 +454,9 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .status(entity.getStatus())
                 .codAmount(entity.getCodAmount())
                 .build();
+    }
+    private PageRequest getPageRequest(int page, int size, String dir, String order) {
+        Sort sort = Sort.by(dir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC, order);
+        return PageRequest.of(page - 1, size, sort);
     }
 }

@@ -31,7 +31,6 @@ public class ProductController {
     @Operation(summary = "Lọc sản phẩm", security = { @SecurityRequirement(name = "bearerAuth")})
     @GetMapping("/filter")
     public ApiResponseDto<PageDto<ProductDto>> filterProducts(
-            @Schema(defaultValue = "3")
             @ParameterObject AdminSearchProductRequest req
     ) {
         PageDto<ProductDto> pageDto = new PageDto<>(productService.filterProducts(req));

@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 public class AdminSearchProductRequest {
-    private Long categoryId = 3L;
+    private Long categoryId;
     private String keyword;
     @Schema(allowableValues = {"id", "price", "create_at", "rating", "sold"})
     private String order = "id";

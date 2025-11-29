@@ -1,6 +1,8 @@
 package com.pbl6.dtos.response.product;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.pbl6.dtos.response.AttributeDto;
+import com.pbl6.dtos.response.CategoryDto;
 import com.pbl6.dtos.response.promotion.PromotionDto;
 import lombok.Builder;
 
@@ -21,7 +23,8 @@ public record ProductDto(
         int reserved_stock,
         int available_stock,
         List<PromotionDto> promotions,
-        RatingSummary rating
+        RatingSummary rating,
+        List<CategoryDto> categories
 ) {
     public record RatingSummary(
             long total,
