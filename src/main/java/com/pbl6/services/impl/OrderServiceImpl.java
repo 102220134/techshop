@@ -506,12 +506,34 @@ public class OrderServiceImpl implements OrderService {
                     "Không thể hoàn thành đơn hàng đang ở trạng thái: " + order.getStatus());
         }
 
-        // 2. Validate Tài chính (QUAN TRỌNG): Kiểm tra đã thanh toán đủ chưa
-        // paidAmount < totalAmount -> Chặn
-        if (order.getPaidAmount().compareTo(order.getTotalAmount()) < 0) {
-            BigDecimal remaining = order.getTotalAmount().subtract(order.getPaidAmount());
-            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,
-                    "Đơn hàng chưa thanh toán đủ. Còn thiếu: " + remaining + ". Vui lòng thanh toán trước khi hoàn thành.");
+        // =========================================================================
+        // 2. Xử lý Tài chính (Dựa trên Delivery Method)
+        // =========================================================================
+        BigDecimal remainingAmount = order.getTotalAmount().subtract(order.getPaidAmount());
+
+        // TRƯỜNG HỢP 1: Khách nhận tại quầy (STORE_PICKUP)
+        // Logic: Khách đến lấy hàng -> Trả nốt tiền tại chỗ -> Hoàn thành đơn
+        // Hành động: Tự động set đã thanh toán đủ (set paid = total)
+        if (order.getReceiveMethod() == ReceiveMethod.PICKUP) { // Thay bằng enum thực tế của bạn
+            if (remainingAmount.compareTo(BigDecimal.ZERO) > 0) {
+                // Tự động cập nhật số tiền đã trả bằng tổng tiền
+                order.setPaidAmount(order.getTotalAmount());
+
+                // TODO: (Khuyên dùng) Nên tạo một bản ghi PaymentTransaction ở đây để lưu vết dòng tiền
+                // paymentService.createTransaction(order, remainingAmount, PaymentMethod.CASH_AT_COUNTER);
+
+                log.info("Order {} (Pickup): Auto-settled remaining amount {}", orderId, remainingAmount);
+            }
+        }
+        // TRƯỜNG HỢP 2: Giao hàng (DELIVERY)
+        // Logic: Shipper phải thu tiền hoặc khách đã chuyển khoản trước -> Mới được bấm Hoàn thành
+        // Hành động: Chặn nếu chưa thanh toán đủ (COD chưa khớp hoặc chưa chuyển khoản)
+        else {
+            if (remainingAmount.compareTo(BigDecimal.ZERO) > 0) {
+                throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                        "Đơn giao hàng (Delivery) chưa thanh toán đủ. Còn thiếu: " + remainingAmount +
+                        ". Vui lòng xác nhận thanh toán trước khi hoàn thành.");
+            }
         }
 
         // 3. Cập nhật trạng thái Order
@@ -519,17 +541,17 @@ public class OrderServiceImpl implements OrderService {
         order.setUpdatedAt(LocalDateTime.now());
 
         // 4. Đồng bộ trạng thái các Reservation con (Safety net)
-        // Đảm bảo tất cả các item con cũng được đánh dấu là COMPLETED nếu chưa
         List<ReservationEntity> reservations = reservationRepository.findByOrderId(orderId);
         boolean hasUpdates = false;
 
         for (ReservationEntity res : reservations) {
-            // Chỉ update những cái chưa xong và chưa hủy
             if (res.getStatus() != ReservationStatus.COMPLETED && res.getStatus() != ReservationStatus.CANCELLED) {
                 res.setStatus(ReservationStatus.COMPLETED);
-                // Serial cũng phải chuyển sang SOLD nếu chưa
-                res.getProductSerials().forEach(s -> s.setStatus(ProductSerialStatus.SOLD));
-                productSerialRepository.saveAll(res.getProductSerials());
+                // Cập nhật Serial sang SOLD
+                if (res.getProductSerials() != null) {
+                    res.getProductSerials().forEach(s -> s.setStatus(ProductSerialStatus.SOLD));
+                    productSerialRepository.saveAll(res.getProductSerials());
+                }
                 hasUpdates = true;
             }
         }
