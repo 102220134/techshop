@@ -40,6 +40,14 @@ public class RoomEntity {
     // active / closed
     private String status = "active";
 
+    // bot / staff - Chế độ chat: bot tự động trả lời hoặc staff trả lời
+    @Column(length = 20)
+    private String chatMode = "bot";
+
+    // Conversation ID với Dify (để duy trì context)
+    @Column(length = 100)
+    private String conversationId;
+
     // Tự động set thời gian tạo
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

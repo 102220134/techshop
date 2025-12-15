@@ -55,6 +55,27 @@ public class RoomServiceImpl implements RoomService {
         roomRepo.save(room);
     }
 
+    @Override
+    public RoomEntity switchChatMode(String userKey, String chatMode) {
+        RoomEntity room = roomRepo.findByUserKey(userKey);
+        if (room == null) {
+            throw new RuntimeException("Room not found for user: " + userKey);
+        }
+        
+        // Validate chatMode
+        if (!"bot".equalsIgnoreCase(chatMode) && !"staff".equalsIgnoreCase(chatMode)) {
+            throw new IllegalArgumentException("Invalid chat mode. Must be 'bot' or 'staff'");
+        }
+        
+        room.setChatMode(chatMode.toLowerCase());
+        return roomRepo.save(room);
+    }
+
+    @Override
+    public RoomEntity getRoomByUserKey(String userKey) {
+        return roomRepo.findByUserKey(userKey);
+    }
+
     public RoomDto roomDto(RoomEntity room) {
         String name = null;
         if(room.getUserKey().startsWith("GUEST_")) {
