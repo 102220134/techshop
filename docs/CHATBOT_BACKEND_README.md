@@ -1,26 +1,64 @@
 # Chatbot Integration - Backend Documentation
 
-## 🎯 Overview
-Hệ thống chatbot hybrid tích hợp Dify AI để tự động tư vấn sản phẩm, với khả năng chuyển đổi sang nhân viên khi cần.
+## 🎯 Tổng quan
+Hệ thống chatbot hybrid tích hợp AI để tự động tư vấn sản phẩm cho khách hàng. Khách hàng có thể chuyển đổi linh hoạt giữa 2 chế độ:
+- **Bot mode** (mặc định): AI chatbot tự động trả lời và gợi ý sản phẩm
+- **Staff mode**: Chuyển tiếp cho nhân viên tư vấn viên trả lời trực tiếp
+
+### Tính năng chính:
+✅ Chatbot AI tự động phân tích nhu cầu khách hàng  
+✅ Gợi ý sản phẩm phù hợp kèm hình ảnh, giá, mô tả  
+✅ Chuyển đổi linh hoạt giữa Bot và Nhân viên  
+✅ Lưu trữ lịch sử chat và conversation context  
+✅ WebSocket real-time cho trải nghiệm mượt mà
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Kiến trúc hệ thống
 
 ```
-User Message
-    ↓
-ChatController
-    ↓
-[Check Room.chatMode]
-    ↓
-├─ bot → ChatbotService → Dify API → Bot Response
-│                                         ↓
-│                                    MessageService.saveBotMessage()
-│                                         ↓
-│                                    WebSocket → User
-│
-└─ staff → Forward to Staff Dashboard
+┌─────────────┐
+│   Customer  │
+│   (Web/App) │
+└──────┬──────┘
+       │ WebSocket
+       ↓
+┌──────────────────────────────────────────────┐
+│          ChatController                       │
+│  (WebSocket Message Handler)                 │
+└──────┬───────────────────────────────────────┘
+       │
+       ├─→ /app/chat.send (Gửi tin nhắn)
+       ├─→ /app/chat.switch_mode (Chuyển mode)
+       └─→ /app/chat.load_history (Tải lịch sử)
+       │
+       ↓
+┌──────────────────────────────────────────────┐
+│   Check room.chatMode                        │
+└──────┬───────────────────────────────────────┘
+       │
+       ├─ "bot" mode ──────────────────────┐
+       │                                    │
+       │   1. Save user message to DB      │
+       │   2. Call ChatbotService          │
+       │   3. Get response from API        │
+       │   4. Parse JSON response          │
+       │   5. Save bot message to DB       │
+       │   6. Send to user via WebSocket   │
+       │                                    │
+       └─ "staff" mode ────────────────────┤
+                                            │
+           Forward to Staff Dashboard      │
+           (Nhân viên trả lời thủ công)    │
+                                            │
+       ┌────────────────────────────────────┘
+       │
+       ↓
+┌──────────────────┐      ┌─────────────────┐
+│  MySQL Database  │      │  External       │
+│  - rooms         │      │  Chatbot API    │
+│  - messages      │      │  (Dify.ai)      │
+└──────────────────┘      └─────────────────┘
 ```
 
 ---
@@ -46,7 +84,7 @@ src/main/java/com/pbl6/
     ├── request/
     │   └── ChatbotRequestDTO.java
     └── response/chat/
-        ├── ChatbotResponseDTO.java  # Parse từ Dify
+        ├── ChatbotResponseDTO.java  
         ├── DifyApiResponse.java
         └── MessageDTO.java          # Unchanged (giữ nguyên)
 ```
