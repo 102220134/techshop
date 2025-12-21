@@ -23,21 +23,21 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // ✅ Public socket: không cần token
         registry.addEndpoint("/ws/public")
-                .setAllowedOriginPatterns("*");
-//                .withSockJS().setSessionCookieNeeded(false);
+                .setAllowedOriginPatterns("*")
+                .withSockJS();
 
         // ✅ Private socket: cần username
         registry.addEndpoint("/ws/customer")
                 .addInterceptors(customerHandshakeInterceptor)
                 .setHandshakeHandler(customHandshakeHandler)
-                .setAllowedOriginPatterns("*");
-//                .withSockJS().setSessionCookieNeeded(false);
+                .setAllowedOriginPatterns("*")
+                .withSockJS();
 
         registry.addEndpoint("/ws/staff")
                 .addInterceptors(staffHandshakeInterceptor)
                 .setHandshakeHandler(customHandshakeHandler)
-                .setAllowedOriginPatterns("*");
-//                .withSockJS().setSessionCookieNeeded(false);
+                .setAllowedOriginPatterns("*")
+                .withSockJS();
     }
 
     @Override
