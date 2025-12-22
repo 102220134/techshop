@@ -21,10 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -163,12 +160,24 @@ public class AuthServiceImpl implements AuthService {
         userLogin.setId(userEntity.getId());
         userLogin.setName(userEntity.getName());
         userLogin.setRoles(userEntity.getRoles().stream().map(RoleEntity::getName).toList());
-        userLogin.setPermissions(userEntity.getRoles().stream().flatMap(role->{
-            Set<String> permissions = role.getPermissions().stream()
-                    .map(PermissionEntity::getName)
-                    .collect(Collectors.toSet());
-            return permissions.stream();
-        }).toList());
+        Set<String> permissions = userEntity.getRoles()
+                .stream()
+                .flatMap(role ->
+                        role.getPermissions()
+                                .stream()
+                                .map(PermissionEntity::getName)
+                )
+                .collect(Collectors.toSet());
+
+        if (
+                permissions.contains("USER_READ_CUSTOMER") ||
+                permissions.contains("USER_READ_STAFF")
+        ) {
+            permissions.add("USER_READ");
+        }
+
+        userLogin.setPermissions(new ArrayList<>(permissions));
+
         loginResponse.setUserInfo(userLogin);
 
         return loginResponse;

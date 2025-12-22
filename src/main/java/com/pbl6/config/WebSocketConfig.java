@@ -24,20 +24,20 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // ✅ Public socket: không cần token
         registry.addEndpoint("/ws/public")
                 .setAllowedOriginPatterns("*");
-//                .withSockJS().setSessionCookieNeeded(false);
+//                .withSockJS();
 
         // ✅ Private socket: cần username
         registry.addEndpoint("/ws/customer")
                 .addInterceptors(customerHandshakeInterceptor)
                 .setHandshakeHandler(customHandshakeHandler)
                 .setAllowedOriginPatterns("*");
-//                .withSockJS().setSessionCookieNeeded(false);
+//                .withSockJS();
 
         registry.addEndpoint("/ws/staff")
                 .addInterceptors(staffHandshakeInterceptor)
                 .setHandshakeHandler(customHandshakeHandler)
                 .setAllowedOriginPatterns("*");
-//                .withSockJS().setSessionCookieNeeded(false);
+//                .withSockJS();
     }
 
     @Override

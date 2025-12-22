@@ -61,6 +61,15 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
             @Param("end") LocalDateTime end
     );
 
+    @Query("SELECT COUNT(o) > 0 FROM OrderEntity o " +
+           "JOIN o.orderItems oi " +
+           "JOIN oi.variant v " +
+           "WHERE o.user.id = :userId " +
+           "AND v.product.id = :productId " +
+           "AND o.status = 'COMPLETED'")
+
+    boolean hasPurchasedProduct(@Param("userId") Long userId, @Param("productId") Long productId);
+
     @Query("SELECT o.paymentMethod, COUNT(o) FROM OrderEntity o " +
            "WHERE o.createdAt BETWEEN :start AND :end " +
            "GROUP BY o.paymentMethod")

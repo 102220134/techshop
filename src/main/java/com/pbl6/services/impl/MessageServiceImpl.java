@@ -1,5 +1,6 @@
 package com.pbl6.services.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pbl6.dtos.response.chat.MessageDTO;
 import com.pbl6.dtos.response.chat.RoomDto;
 import com.pbl6.entities.MessageEntity;
@@ -67,6 +68,40 @@ public class MessageServiceImpl implements MessageService {
         room.setLastMessage(content);
         room.setLastMessageTime(LocalDateTime.now());
         room.setUnreadCount(0);  // staff trả lời → reset unread
+        roomRepository.save(room);
+
+        return toDTO(saved);
+    }
+
+    @Override
+    public MessageDTO saveBotMessage(Long roomId, com.pbl6.dtos.response.chat.ChatbotResponseDTO botResponse) {
+        
+        // 1) Chuyển ChatbotResponseDTO thành JSON string để lưu vào content
+        ObjectMapper mapper = new ObjectMapper();
+        String jsonContent;
+        try {
+            jsonContent = mapper.writeValueAsString(botResponse);
+        } catch (Exception e) {
+            log.error("Failed to serialize bot response", e);
+            jsonContent = botResponse.getReplyText(); // fallback
+        }
+        
+        // 2) Lưu message BOT
+        MessageEntity msg = new MessageEntity();
+        msg.setRoomId(roomId);
+        msg.setSenderType("BOT");
+        msg.setSenderKey("BOT");
+        msg.setContent(jsonContent);
+        msg.setType("chatbot-response");
+        msg.setCreatedAt(LocalDateTime.now());
+
+        MessageEntity saved = messageRepository.save(msg);
+
+        // 3) Update room (KHÔNG TĂNG UNREAD vì bot tự động trả lời)
+        RoomEntity room = roomRepository.findById(roomId).orElseThrow();
+        room.setLastMessage(botResponse.getReplyText());
+        room.setLastMessageTime(LocalDateTime.now());
+        room.setUnreadCount(0);  // bot trả lời → reset unread
         roomRepository.save(room);
 
         return toDTO(saved);

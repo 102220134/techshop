@@ -40,11 +40,18 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewMapper reviewMapper;
 
     private static final int MAX_IMAGES = 5;
+    private final OrderRepository orderRepository;
 
     @Override
     @Transactional
     public void createOrUpdateReview(Long productId, CreateReviewRequest request) {
         Long userId = authUtil.getCurrentUserId();
+
+        boolean hasBought = orderRepository.hasPurchasedProduct(userId, productId);
+        if (!hasBought) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,
+                    "Bạn chỉ có thể đánh giá sản phẩm sau khi đã mua và nhận hàng thành công.");
+        }
 
         UserEntity user = userRepo.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND, "User not found"));

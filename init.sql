@@ -1157,12 +1157,16 @@ CREATE TABLE `rooms` (
   `last_message_time` datetime DEFAULT NULL,
   `unread_count` int DEFAULT '0',
   `status` varchar(20) NOT NULL DEFAULT 'active',
+  `chat_mode` varchar(20) DEFAULT 'bot' COMMENT 'Chat mode: bot or staff',
+  `conversation_id` varchar(100) DEFAULT NULL COMMENT 'Dify conversation ID for context',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_key` (`user_key`),
   KEY `idx_last_message_time` (`last_message_time`),
-  KEY `idx_status` (`status`)
+  KEY `idx_status` (`status`),
+  KEY `idx_rooms_chat_mode` (`chat_mode`),
+  KEY `idx_rooms_user_key` (`user_key`)
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -1172,7 +1176,7 @@ CREATE TABLE `rooms` (
 
 LOCK TABLES `rooms` WRITE;
 /*!40000 ALTER TABLE `rooms` DISABLE KEYS */;
-INSERT INTO `rooms` VALUES (1,'GUEST_b49a4281-3795-430d-b1ad-a0a051338ed9',NULL,'t','2025-11-21 16:04:24',0,'active','2025-11-20 17:25:57','2025-11-21 16:04:24'),(2,'GUEST_6180be80-e829-45af-9ae7-8423ae52dad1',NULL,'g','2025-11-20 21:02:36',0,'active','2025-11-20 20:14:35','2025-11-20 21:02:36'),(3,'GUEST_0f8fcf9b-f1fa-4c78-b5ce-7e63fa1803d3',NULL,'cmm','2025-11-20 21:07:53',0,'active','2025-11-20 21:06:46','2025-11-20 21:34:16'),(4,'GUEST_fb3d3d37-e338-4a19-bcba-9dd9ff390ac5',NULL,'/','2025-11-20 21:20:26',0,'active','2025-11-20 21:13:50','2025-11-20 21:34:15'),(5,'USER_0976912051',NULL,'he','2025-11-20 23:35:10',0,'active','2025-11-20 21:33:55','2025-11-20 23:35:33'),(6,'GUEST_SYSTEM',NULL,'Chào bạn','2025-11-20 22:04:05',0,'active','2025-11-20 22:04:05','2025-11-20 22:04:05'),(7,'GUEST_USER_0976912051',NULL,'hu','2025-11-20 22:36:04',0,'active','2025-11-20 22:07:09','2025-11-20 22:36:04'),(8,'GUEST_626c2ad3-5aa9-409e-b581-c09ad9330fca',NULL,'?','2025-11-20 23:57:07',0,'active','2025-11-20 23:54:09','2025-11-20 23:57:07'),(9,'GUEST_b8db0c9a-c767-408f-9e88-1e6c60cadd4d',NULL,'Chào bạn','2025-11-20 23:57:38',0,'active','2025-11-20 23:57:38','2025-11-20 23:57:38'),(10,'GUEST_49a39779-7e9a-4aa5-99ad-341460cef4ee',NULL,'Chào bạn','2025-11-20 23:57:41',0,'active','2025-11-20 23:57:41','2025-11-20 23:57:41'),(11,'GUEST_cb1e6e48-ed2e-4e27-a75d-c9f6440d892c',NULL,'Chào bạn','2025-11-20 23:57:43',0,'active','2025-11-20 23:57:43','2025-11-20 23:57:43'),(12,'GUEST_76312d71-cd9b-445b-bfe3-b50e1ce7576b',NULL,'Chào bạn','2025-11-20 23:57:46',0,'active','2025-11-20 23:57:46','2025-11-20 23:57:46');
+INSERT INTO `rooms` VALUES (1,'GUEST_b49a4281-3795-430d-b1ad-a0a051338ed9',NULL,'t','2025-11-21 16:04:24',0,'active','bot',NULL,'2025-11-20 17:25:57','2025-11-21 16:04:24'),(2,'GUEST_6180be80-e829-45af-9ae7-8423ae52dad1',NULL,'g','2025-11-20 21:02:36',0,'active','bot',NULL,'2025-11-20 20:14:35','2025-11-20 21:02:36'),(3,'GUEST_0f8fcf9b-f1fa-4c78-b5ce-7e63fa1803d3',NULL,'cmm','2025-11-20 21:07:53',0,'active','bot',NULL,'2025-11-20 21:06:46','2025-11-20 21:34:16'),(4,'GUEST_fb3d3d37-e338-4a19-bcba-9dd9ff390ac5',NULL,'/','2025-11-20 21:20:26',0,'active','bot',NULL,'2025-11-20 21:13:50','2025-11-20 21:34:15'),(5,'USER_0976912051',NULL,'he','2025-11-20 23:35:10',0,'active','bot',NULL,'2025-11-20 21:33:55','2025-11-20 23:35:33'),(6,'GUEST_SYSTEM',NULL,'Chào bạn','2025-11-20 22:04:05',0,'active','bot',NULL,'2025-11-20 22:04:05','2025-11-20 22:04:05'),(7,'GUEST_USER_0976912051',NULL,'hu','2025-11-20 22:36:04',0,'active','bot',NULL,'2025-11-20 22:07:09','2025-11-20 22:36:04'),(8,'GUEST_626c2ad3-5aa9-409e-b581-c09ad9330fca',NULL,'?','2025-11-20 23:57:07',0,'active','bot',NULL,'2025-11-20 23:54:09','2025-11-20 23:57:07'),(9,'GUEST_b8db0c9a-c767-408f-9e88-1e6c60cadd4d',NULL,'Chào bạn','2025-11-20 23:57:38',0,'active','bot',NULL,'2025-11-20 23:57:38','2025-11-20 23:57:38'),(10,'GUEST_49a39779-7e9a-4aa5-99ad-341460cef4ee',NULL,'Chào bạn','2025-11-20 23:57:41',0,'active','bot',NULL,'2025-11-20 23:57:41','2025-11-20 23:57:41'),(11,'GUEST_cb1e6e48-ed2e-4e27-a75d-c9f6440d892c',NULL,'Chào bạn','2025-11-20 23:57:43',0,'active','bot',NULL,'2025-11-20 23:57:43','2025-11-20 23:57:43'),(12,'GUEST_76312d71-cd9b-445b-bfe3-b50e1ce7576b',NULL,'Chào bạn','2025-11-20 23:57:46',0,'active','bot',NULL,'2025-11-20 23:57:46','2025-11-20 23:57:46');
 /*!40000 ALTER TABLE `rooms` ENABLE KEYS */;
 UNLOCK TABLES;
 

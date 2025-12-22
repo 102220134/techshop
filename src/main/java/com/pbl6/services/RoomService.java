@@ -8,4 +8,6 @@ public interface RoomService {
     RoomEntity findOrCreateRoom(String userKey);
     PageDto<RoomDto> getAllRooms(int page, int size);
     void markAsRead(Long roomId);
+    RoomEntity switchChatMode(String userKey, String chatMode);
+    RoomEntity getRoomByUserKey(String userKey);
 }

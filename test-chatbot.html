@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Chatbot TechShop (Native WebSocket)</title>
+    <style>
+        /* Giữ nguyên phần CSS của bạn */
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; background: #f5f5f5; }
+        .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; font-weight: bold; }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .chat-box { border: 1px solid #ddd; height: 400px; overflow-y: auto; padding: 15px; margin: 20px 0; background: #fafafa; border-radius: 5px; }
+        .message { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .message.user { background: #007bff; color: white; text-align: right; }
+        .message.bot { background: #e9ecef; color: #333; }
+        .message.system { background: #fff3cd; color: #856404; font-style: italic; text-align: center; }
+        .product-card { border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 5px; background: white; }
+        .product-card img { max-width: 100px; height: auto; }
+        .input-group { display: flex; gap: 10px; margin: 10px 0; }
+        input[type="text"] { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-danger { background: #dc3545; color: white; }
+        .controls { display: flex; gap: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Chatbot TechShop (Native WS)</h1>
+        
+        <div id="status" class="status disconnected">❌ Chưa kết nối</div>
+
+        <div class="controls">
+            <button class="btn-primary" onclick="connect()">Kết nối</button>
+            <button class="btn-danger" onclick="disconnect()">Ngắt kết nối</button>
+            <button class="btn-warning" onclick="switchMode('staff')">Chuyển sang Staff</button>
+            <button class="btn-primary" onclick="switchMode('bot')">Chuyển sang Bot</button>
+        </div>
+
+        <div class="input-group">
+            <input type="text" id="userKey" placeholder="User Key" value="test_user_123">
+            <button class="btn-primary" onclick="createRoom()">Tạo Room (API)</button>
+        </div>
+
+        <div id="chatBox" class="chat-box"></div>
+
+        <div class="input-group">
+            <input type="text" id="messageInput" placeholder="Nhập tin nhắn..." 
+                   onkeypress="if(event.key==='Enter') sendMessage()">
+            <button class="btn-primary" onclick="sendMessage()">Gửi</button>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let currentUserKey = 'test_user_123';
+
+        function setConnected(connected) {
+            const status = document.getElementById('status');
+            status.className = connected ? 'status connected' : 'status disconnected';
+            status.innerHTML = connected ? '✅ Đã kết nối WebSocket thuần' : '❌ Chưa kết nối';
+        }
+
+        function connect() {
+            currentUserKey = document.getElementById('userKey').value;
+            // Sử dụng giao thức ws:// thay vì http://
+            const url = `ws://localhost:8080/ws/customer?guestId=${currentUserKey}`;
+            
+            socket = new WebSocket(url);
+
+            socket.onopen = function(e) {
+                console.log("Connection established");
+                setConnected(true);
+                addSystemMessage('Đã kết nối thành công (Native WS)!');
+            };
+
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                console.log('Received:', data);
+
+                // Giả sử Backend gửi kèm trường "type" để phân loại tin nhắn
+                if (data.type === 'CHAT_MODE_CHANGED') {
+                    addSystemMessage('Chế độ chat đã chuyển sang: ' + data.chatMode);
+                } else {
+                    // Mặc định xử lý như tin nhắn từ Bot/Staff
+                    showBotResponse(data);
+                }
+            };
+
+            socket.onclose = function(event) {
+                if (event.wasClean) {
+                    console.log(`Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+                } else {
+                    console.error('Connection died');
+                }
+                setConnected(false);
+                addSystemMessage('Đã ngắt kết nối.');
+            };
+
+            socket.onerror = function(error) {
+                console.error(`[error] ${error.message}`);
+                addSystemMessage('Lỗi kết nối WebSocket!');
+            };
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.close();
+            }
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const content = messageInput.value.trim();
+            
+            if (!content || !socket || socket.readyState !== WebSocket.OPEN) {
+                alert('Chưa kết nối hoặc tin nhắn trống!');
+                return;
+            }
+
+            const payload = {
+                action: 'SEND_MESSAGE', // Thêm action để Backend dễ phân loại
+                content: content,
+                timestamp: new Date().toISOString()
+            };
+
+            addUserMessage(content);
+            socket.send(JSON.stringify(payload));
+            messageInput.value = '';
+        }
+
+        function switchMode(mode) {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                alert('Chưa kết nối!');
+                return;
+            }
+
+            const payload = {
+                action: 'SWITCH_MODE',
+                chatMode: mode
+            };
+
+            socket.send(JSON.stringify(payload));
+            addSystemMessage(`Đang yêu cầu chuyển sang chế độ ${mode.toUpperCase()}...`);
+        }
+
+        // --- Các hàm hỗ trợ UI (Giữ nguyên logic hiển thị) ---
+
+        function createRoom() {
+            currentUserKey = document.getElementById('userKey').value;
+            fetch('http://localhost:8080/api/chat/rooms/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userKey: currentUserKey })
+            })
+            .then(res => res.json())
+            .then(data => addSystemMessage(`Room đã tạo - ID: ${data.id}`))
+            .catch(err => addSystemMessage('Lỗi tạo room: ' + err));
+        }
+
+        function addUserMessage(content) {
+            const chatBox = document.getElementById('chatBox');
+            const div = document.createElement('div');
+            div.className = 'message user';
+            div.innerHTML = `<strong>Bạn:</strong> ${content}`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function addSystemMessage(content) {
+            const chatBox = document.getElementById('chatBox');
+            const div = document.createElement('div');
+            div.className = 'message system';
+            div.textContent = content;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function showBotResponse(response) {
+            const chatBox = document.getElementById('chatBox');
+            const div = document.createElement('div');
+            div.className = 'message bot';
+
+            let content = response.content;
+            let chatbotData = null;
+
+            try {
+                chatbotData = JSON.parse(content);
+            } catch (e) {
+                div.innerHTML = `<strong>🤖 Bot:</strong> ${content}`;
+                chatBox.appendChild(div);
+                chatBox.scrollTop = chatBox.scrollHeight;
+                return;
+            }
+
+            let html = `<strong>🤖 Bot:</strong> ${chatbotData.reply_text}<br>`;
+            if (chatbotData.suggested_products?.length > 0) {
+                html += '<div style="margin-top: 10px;"><strong>📦 Gợi ý:</strong></div>';
+                chatbotData.suggested_products.forEach(p => {
+                    html += `
+                        <div class="product-card">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                ${p.image_url ? `<img src="${p.image_url}" alt="${p.name}">` : ''}
+                                <div style="flex: 1;">
+                                    <strong>${p.name}</strong><br>
+                                    <span style="color: #dc3545; font-weight: bold;">${p.price}</span><br>
+                                    ${p.link ? `<a href="${p.link}" target="_blank" style="color: #007bff;">Chi tiết →</a>` : ''}
+                                </div>
+                            </div>
+                        </div>`;
+                });
+            }
+            div.innerHTML = html;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
