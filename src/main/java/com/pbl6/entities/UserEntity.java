@@ -150,7 +150,7 @@ public class UserEntity implements UserDetails {
 
     public boolean isCustomer() {
         return roles.stream()
-                .anyMatch(role -> role.equals("CUSTOMER"));
+                .anyMatch(role -> role.getName().equals("CUSTOMER"));
     }
 
     public boolean isStaff() {
@@ -159,7 +159,7 @@ public class UserEntity implements UserDetails {
     }
     public boolean isAdmin() {
         return roles.stream()
-                .anyMatch(role -> role.equals("ADMIN"));
+                .anyMatch(role -> role.getName().equals("ADMIN"));
     }
 
 

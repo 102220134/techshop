@@ -92,6 +92,7 @@ public class ChatController {
                     log.info("Bot responded to user: {}", userKey);
                     
                 } catch (Exception e) {
+                    System.out.println(e.getMessage());
                     log.error("Chatbot error for user: " + userKey, e);
                     
                     ChatbotResponseDTO errorResponse = new ChatbotResponseDTO();
