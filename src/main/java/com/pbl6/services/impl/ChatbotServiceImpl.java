@@ -40,7 +40,7 @@ public class ChatbotServiceImpl implements ChatbotService {
             requestBody.put("inputs", new HashMap<>());
             requestBody.put("user", userKey);
             requestBody.put("response_mode", "blocking");
-
+            
             if (conversationId != null && !conversationId.isEmpty()) {
                 requestBody.put("conversation_id", conversationId);
             }
@@ -53,7 +53,7 @@ public class ChatbotServiceImpl implements ChatbotService {
 
             String fullUrl = chatbotApiUrl + "/chat-messages";
             log.info("Calling chatbot API for user: {}", userKey);
-
+            
             ResponseEntity<String> response = restTemplate.exchange(
                     fullUrl,
                     HttpMethod.POST,
@@ -68,7 +68,7 @@ public class ChatbotServiceImpl implements ChatbotService {
 
                 saveConversationId(userKey, newConversationId);
                 ChatbotResponseDTO chatbotResponse = parseAnswerToResponse(answer);
-
+                
                 return chatbotResponse;
             } else {
                 log.error("Chatbot API returned non-OK status: {}", response.getStatusCode());
@@ -100,7 +100,7 @@ public class ChatbotServiceImpl implements ChatbotService {
             return objectMapper.readValue(jsonContent, ChatbotResponseDTO.class);
         } catch (JsonProcessingException e) {
             log.error("Failed to parse chatbot response as JSON: {}", answer, e);
-
+            
             // Fallback: return plain text as reply
             ChatbotResponseDTO fallback = new ChatbotResponseDTO();
             fallback.setReplyText(answer);
@@ -114,7 +114,7 @@ public class ChatbotServiceImpl implements ChatbotService {
         if (text.contains("```json")) {
             int startIndex = text.indexOf("```json");
             int endIndex = text.indexOf("```", startIndex + 7);
-
+            
             if (startIndex != -1 && endIndex != -1) {
                 // Extract content between ```json and ```
                 String jsonBlock = text.substring(startIndex + 7, endIndex).trim();
@@ -122,12 +122,12 @@ public class ChatbotServiceImpl implements ChatbotService {
                 return jsonBlock;
             }
         }
-
+        
         // Check if text contains plain JSON block (without json tag)
         if (text.contains("```")) {
             int startIndex = text.indexOf("```");
             int endIndex = text.indexOf("```", startIndex + 3);
-
+            
             if (startIndex != -1 && endIndex != -1) {
                 String possibleJson = text.substring(startIndex + 3, endIndex).trim();
                 // Check if it looks like JSON (starts with { or [)
@@ -137,7 +137,7 @@ public class ChatbotServiceImpl implements ChatbotService {
                 }
             }
         }
-
+        
         // Try to find JSON object directly in text (starting with {)
         int jsonStart = text.indexOf("{");
         if (jsonStart != -1) {
@@ -155,14 +155,14 @@ public class ChatbotServiceImpl implements ChatbotService {
                     }
                 }
             }
-
+            
             if (jsonEnd != -1) {
                 String jsonBlock = text.substring(jsonStart, jsonEnd).trim();
                 log.info("Extracted JSON object directly from text");
                 return jsonBlock;
             }
         }
-
+        
         // No JSON found, return original text (will be used as plain reply)
         log.info("No JSON found in response, treating as plain text");
         return text;
