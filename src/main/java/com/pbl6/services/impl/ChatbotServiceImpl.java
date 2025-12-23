@@ -84,12 +84,16 @@ public class ChatbotServiceImpl implements ChatbotService {
     private void saveConversationId(String userKey, String conversationId) {
         try {
             RoomEntity room = roomRepository.findByUserKey(userKey);
-            if (room != null && conversationId != null) {
+            if (room != null && conversationId != null && !conversationId.isEmpty()) {
+                log.info("Saving conversation ID: {} for user: {}", conversationId, userKey);
                 room.setConversationId(conversationId);
                 roomRepository.save(room);
+                log.info("Successfully saved conversation ID for user: {}", userKey);
+            } else {
+                log.warn("Cannot save conversation ID - room: {}, conversationId: {}", room != null, conversationId);
             }
         } catch (Exception e) {
-            log.error("Failed to save conversation ID", e);
+            log.error("Failed to save conversation ID for user: {}", userKey, e);
         }
     }
 

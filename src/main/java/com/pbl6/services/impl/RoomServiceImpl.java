@@ -29,9 +29,11 @@ public class RoomServiceImpl implements RoomService {
             room = new RoomEntity();
             room.setUserKey(userKey);
             room.setStatus("active");
+            room.setChatMode("bot");
             room.setLastMessage("Bắt đầu hội thoại");
             room.setLastMessageTime(LocalDateTime.now());
             room.setUnreadCount(0);
+            room.setConversationId(null);
             roomRepo.save(room);
 
             messageService.saveSystemMessage(room.getId(),null,"Chào bạn");
