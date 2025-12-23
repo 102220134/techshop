@@ -24,14 +24,14 @@ public class TransferController {
 
     // (Các hàm Get và Create giữ nguyên)
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('TRANSFER_READ')")
     @GetMapping()
     @Operation(summary = "Danh sách phiếu chuyển kho", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> getTransfers(@ParameterObject ListTransferRequest req) {
         return new ApiResponseDto<>(transferService.getTransfers(req));
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('TRANSFER_READ')")
     @GetMapping("/{id}")
     @Operation(summary = "Xem chi tiết phiếu chuyển", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> getTransferDetail(
@@ -40,7 +40,7 @@ public class TransferController {
         return new ApiResponseDto<>(transferService.getTransferItems(id, request));
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('TRANSFER_CREATE')")
     @PostMapping()
     @Operation(summary = "Tạo phiếu chuyển kho (Thủ công)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> createTransfer(@RequestBody CreateTransferRequest req) {
@@ -48,7 +48,7 @@ public class TransferController {
     }
 
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('TRANSFER_CONFIRM')")
     @PutMapping("/{id}/confirm")
     @Operation(summary = "Xác nhận phiếu (DRAFT -> CONFIRMED)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> confirmTransfer(@PathVariable long id) {
@@ -56,7 +56,7 @@ public class TransferController {
         return new ApiResponseDto<>();
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('TRANSFER_CANCEL')")
     @PutMapping("/{id}/cancel")
     @Operation(summary = "Xác nhận phiếu (DRAFT -> CANCELD)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> cancelTransfer(@PathVariable long id) {
@@ -64,7 +64,7 @@ public class TransferController {
         return new ApiResponseDto<>();
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('TRANSFER_START')")
     @PutMapping("/{id}/start")
     @Operation(summary = "Bắt đầu xuất kho (CONFIRMED -> TRANSFERRING)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<Void> startTransfer(@PathVariable Long id) {
@@ -72,7 +72,7 @@ public class TransferController {
         return new ApiResponseDto<>();
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('TRANSFER_COMPLETE')")
     @PutMapping("/{id}/complete")
     @Operation(summary = "Hoàn thành nhập kho (TRANSFERRING -> COMPLETED)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<Void> completeTransfer(@PathVariable Long id) {
@@ -81,7 +81,7 @@ public class TransferController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('TRANSFER_CANCEL')")
     @Operation(summary = "Xoá phiếu chuyển (Chỉ DRAFT)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<Void> deleteTransfer(@PathVariable Long id) {
         transferService.deleteTransfer(id);

@@ -52,12 +52,18 @@ public class UserEntity implements UserDetails {
     private String avatar;
     private Boolean isActive = true;
     private Boolean isGuest = false;
-
-    private Long storeId;
-    private Long warehouseId;
+    private Boolean isGlobalStaff = false;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_location_inventory",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "location_id")
+    )
+    private Set<InventoryLocationEntity> scops;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

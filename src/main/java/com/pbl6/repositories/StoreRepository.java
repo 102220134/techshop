@@ -1,5 +1,6 @@
 package com.pbl6.repositories;
 
+import com.pbl6.entities.InventoryLocationEntity;
 import com.pbl6.entities.StoreEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -14,4 +15,5 @@ public interface StoreRepository extends JpaRepository<StoreEntity,Long> {
     Optional<StoreEntity> findByInventoryLocationId(Long id);
 
     List<StoreEntity> findByInventoryLocationIdIn(Set<Long> storeLocIds);
+    Set<StoreEntity> findByInventoryLocationIn(Set<InventoryLocationEntity> storeLocIds);
 }

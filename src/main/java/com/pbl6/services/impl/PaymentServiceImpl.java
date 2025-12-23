@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -127,6 +128,7 @@ public class PaymentServiceImpl implements PaymentService {
         // }
     }
 
+    @Transactional
     @Override
     public PaymentInitResponse create(OrderEntity order) {
         PaymentMethod m = order.getPaymentMethod();
@@ -138,6 +140,18 @@ public class PaymentServiceImpl implements PaymentService {
             case VNPAY -> vnPayPayment.initiate(order);
             default -> throw new AppException(ErrorCode.VALIDATION_ERROR, "Unsupported payment method");
         };
+    }
+    @Transactional
+    @Override
+    public void createTransaction(OrderEntity order, BigDecimal remainingAmount, PaymentMethod paymentMethod) {
+        PaymentEntity payment = new PaymentEntity();
+        payment.setOrder(order);
+        payment.setAmount(remainingAmount);
+        payment.setMethod(paymentMethod);
+        payment.setStatus(PaymentStatus.PAID);
+        payment.setCreatedAt(LocalDateTime.now());
+        payment.setPaidAt(LocalDateTime.now());
+        paymentRepo.save(payment);
     }
 
     private Long extractOrderId(String content) {

@@ -39,8 +39,11 @@ public class PromotionEntity {
 
     private boolean isActive;
 
-    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<PromotionTargetEntity> targets;
+    @OneToMany(mappedBy = "promotion",
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY,
+            orphanRemoval = true) // Thêm dòng này
+    private List<PromotionTargetEntity> targets = new ArrayList<>();
 
     @ManyToMany(mappedBy = "promotions")
     private List<OrderItemEntity> orderItems = new ArrayList<>();

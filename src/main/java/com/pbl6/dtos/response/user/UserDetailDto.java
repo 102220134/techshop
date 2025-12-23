@@ -23,10 +23,12 @@ public class UserDetailDto {
     private Boolean isActive;
     private Boolean isGuest;
     private List<String> roles;
+    private List<Long> scops;
     private int totalOrders;
     private BigDecimal totalAmountSpent;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private boolean isGlobalStaff;
 
     private List<UserAddressDto> addresses;
 }

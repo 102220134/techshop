@@ -25,14 +25,14 @@ public class ReservationController {
     private final TransferService transferService;
     private final DeliveryService deliveryService;
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAnyAuthority('TRANSFER_READ','DELIVERY_READ')")
     @GetMapping("/reservations")
     @Operation(summary = "Danh sách yeu cau van don", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> getReservations(@ParameterObject ListReservationRequest req) {
         return new ApiResponseDto<>(reservationService.listReservations(req));
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('TRANSFER_CREATE')")
     @PostMapping("/reservation/transfer")
     @Operation(summary = "tao van chuyen kho cho don hang nhan tai cua hang", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> createTransfer(
@@ -41,7 +41,7 @@ public class ReservationController {
         return new ApiResponseDto<>(transferService.createTransfer(reservationIds));
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('DELIVERY_CREATE')")
     @PostMapping("/reservation/{id}/delivery")
     @Operation(summary = "tao van chuyen kho cho don hang giao hang tan noi (chua lam xong)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> createDelivery(

@@ -16,6 +16,7 @@ import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.repositories.*;
 import com.pbl6.services.InventoryLocationService;
 import com.pbl6.services.TransferService;
+import com.pbl6.utils.AuthenticationUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,6 +29,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,6 +47,7 @@ public class TransferServiceImpl implements TransferService {
     private final StockMovementRepository stockMovementRepository;
     private final ReservationRepository reservationRepository;
     private final OrderRepository orderRepository;
+    private final AuthenticationUtil authenticationUtil;
 
     // ========================================================================
     // CREATE TRANSFER
@@ -107,10 +110,32 @@ public class TransferServiceImpl implements TransferService {
 
     @Override
     public PageDto<TransferDto> getTransfers(ListTransferRequest req) {
+        UserEntity user = authenticationUtil.getCurrentUser();
         PageRequest pageable = getPageRequest(req.getPage(), req.getSize(), req.getDir(), req.getOrder());
-        Page<TransferDto> pageResult = transferRepository.findByStatus(req.getStatus(), pageable).map(this::toDto);
-        return new PageDto<>(pageResult);
+
+        if (!user.isAdmin() && !user.getIsGlobalStaff()) {
+            Set<Long> locationIds = user.getScops()
+                    .stream()
+                    .map(InventoryLocationEntity::getId)
+                    .collect(Collectors.toSet());
+
+            if (locationIds.isEmpty()) {
+                return PageDto.empty(pageable);
+            }
+
+            Page<InventoryTransferEntity> pageResult = transferRepository.findByStatusAndSourceOrDestinationIn(
+                    req.getStatus(),
+                    locationIds,
+                    pageable
+            );
+
+            return new PageDto<>(pageResult.map(this::toDto));
+        } else {
+            Page<InventoryTransferEntity> pageResult = transferRepository.findByStatus(req.getStatus(), pageable);
+            return new PageDto<>(pageResult.map(this::toDto));
+        }
     }
+
 
     @Override
     public PageDto<TransferItemDto> getTransferItems(long id, TransferDetailRequest req) {
@@ -261,7 +286,7 @@ public class TransferServiceImpl implements TransferService {
             productSerialRepository.updateSerialsForShipping(serials, transfer.getSource().getId());
         }
 
-        updateReservationStatus(transfer.getId(), ReservationStatus.TRANSFERRING);
+        updateReservationStatus(transfer, ReservationStatus.TRANSFERRING);
     }
 
     private void processCompleteTransfer(InventoryTransferEntity transfer) {
@@ -282,6 +307,9 @@ public class TransferServiceImpl implements TransferService {
                         return newInv;
                     });
             inv.setStock(inv.getStock() + item.getQuantity());
+            if(isReservationTransfer){
+                inv.setReservedStock(inv.getReservedStock() + item.getQuantity());
+            }
             inventoryRepository.save(inv);
 
             // 2. Ghi Movement & Update Serial
@@ -291,13 +319,14 @@ public class TransferServiceImpl implements TransferService {
 
             if (isReservationTransfer) {
                 productSerialRepository.updateSerialsForStoreReservation(serials, transfer.getDestination());
+
             } else {
                 productSerialRepository.updateSerialsForReceiving(serials, transfer.getDestination());
             }
         }
 
         if (isReservationTransfer) {
-            updateReservationStatus(transfer.getId(), ReservationStatus.AVAILABLE);
+            updateReservationStatus(transfer, ReservationStatus.AVAILABLE);
         }
     }
 
@@ -305,7 +334,7 @@ public class TransferServiceImpl implements TransferService {
         if (transfer.getStatus() != TransferStatus.DRAFT) {
             throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Chỉ được Hủy phiếu khi đang ở DRAFT");
         }
-        updateReservationStatus(transfer.getId(), ReservationStatus.PENDING);
+        updateReservationStatus(transfer, ReservationStatus.PENDING);
     }
 
     // ========================================================================
@@ -403,10 +432,9 @@ public class TransferServiceImpl implements TransferService {
         }
     }
 
-    private void updateReservationStatus(Long transferId, ReservationStatus status) {
-        List<ReservationEntity> list = reservationRepository.findByTransferId(transferId);
+    private void updateReservationStatus(InventoryTransferEntity transfer, ReservationStatus status) {
+        List<ReservationEntity> list = reservationRepository.findByTransferId(transfer.getId());
 
-        if (list.isEmpty()) return;
         if (status == ReservationStatus.TRANSFERRING) {
             List<OrderEntity> distinctOrders = list.stream()
                     .map(ReservationEntity::getOrder)
@@ -428,6 +456,9 @@ public class TransferServiceImpl implements TransferService {
 
         list.forEach(r -> {
             if (status == ReservationStatus.PENDING) r.setTransfer(null);
+            if(status == ReservationStatus.COMPLETED || status == ReservationStatus.AVAILABLE){
+                r.setLocation(r.getTransfer().getDestination());
+            }
             r.setStatus(status);
             r.setUpdatedAt(LocalDateTime.now());
         });

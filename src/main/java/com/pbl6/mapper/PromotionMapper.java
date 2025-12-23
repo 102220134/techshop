@@ -37,7 +37,7 @@ public class PromotionMapper {
         if (targets == null) return List.of();
         return targets.stream()
                 .map(t -> PromotionTargetDto.builder()
-                        .targetType(t.getTargetType().name())
+                        .targetType(t.getTargetType())
                         .targetId(t.getTargetId())
                         .build())
                 .toList();

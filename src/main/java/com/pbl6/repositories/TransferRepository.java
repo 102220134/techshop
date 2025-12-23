@@ -11,6 +11,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Set;
+
 @Repository
 public interface TransferRepository extends JpaRepository<InventoryTransferEntity,Long> {
     @Query("""
@@ -21,4 +24,21 @@ public interface TransferRepository extends JpaRepository<InventoryTransferEntit
             @Param("status") TransferStatus status,
             Pageable pageable
     );
+
+    @Query("""
+    SELECT it FROM InventoryTransferEntity it
+    WHERE (:status IS NULL OR it.status = :status)
+      AND (
+            :locationIds IS NULL
+            OR it.source.id IN :locationIds
+            OR it.destination.id IN :locationIds
+          )
+""")
+    Page<InventoryTransferEntity> findByStatusAndSourceOrDestinationIn(
+            @Param("status") TransferStatus status,
+            @Param("locationIds") Set<Long> locationIds,
+            Pageable pageable
+    );
+
+
 }

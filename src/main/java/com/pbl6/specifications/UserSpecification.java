@@ -7,26 +7,23 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class UserSpecification {
 
-    public static Specification<UserEntity> hasName(String name) {
-        return (root, query, cb) ->
-                (name == null || name.isBlank())
-                        ? null
-                        : cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%");
+    public static Specification<UserEntity> hasKeyword(String keyword) {
+        return (root, query, cb) -> {
+            if (keyword == null || keyword.isBlank()) {
+                return null;
+            }
+
+            String lower = keyword.toLowerCase();
+            String contains = "%" + lower + "%";
+
+            return cb.or(
+                    cb.like(cb.lower(root.get("name")), contains),
+                    cb.like(cb.lower(root.get("email")), contains),
+                    cb.like(cb.lower(root.get("phone")), lower + "%")
+            );
+        };
     }
 
-    public static Specification<UserEntity> hasPhone(String phone) {
-        return (root, query, cb) ->
-                (phone == null || phone.isBlank())
-                        ? null
-                        : cb.like(cb.lower(root.get("phone")), phone + "%");
-    }
-
-    public static Specification<UserEntity> hasEmail(String email) {
-        return (root, query, cb) ->
-                (email == null || email.isBlank())
-                        ? null
-                        : cb.like(cb.lower(root.get("email")), "%" + email.toLowerCase() + "%");
-    }
 
     public static Specification<UserEntity> isActive(Boolean active) {
         return (root, query, cb) ->

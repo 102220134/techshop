@@ -14,6 +14,7 @@ import java.time.LocalTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class StoreDto {
     Long id;
+    long locationId;
     String name;
     String displayAddress;
     Location location;

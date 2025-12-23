@@ -12,4 +12,6 @@ public class UserLogin {
     private String name;
     private List<String> roles;
     private List<String> permissions;
+    private List<Long> scops;
+    boolean isGlobalStaff;
 }

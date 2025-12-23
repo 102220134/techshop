@@ -29,14 +29,14 @@ import org.springframework.web.bind.annotation.*;
 public class GRController {
     private final GRService gRService;
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('RECEIPT_READ')")
     @GetMapping("/receipts")
     @Operation(summary = "Danh sách phiếu nhập kho", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<PageDto<GRDto>> getGoodsReceipts(@ParameterObject ListGRRequest req) {
         return new ApiResponseDto<>(gRService.getGRs(req));
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('RECEIPT_READ')")
     @GetMapping("/receipt/{id}")
     @Operation(summary = "Xem chi tiết phiếu nhập kho", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<PageDto<GRItemDto>> getGoodsReceipt(
@@ -45,14 +45,14 @@ public class GRController {
         return new ApiResponseDto<>(gRService.getGRItems(id, request));
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('RECEIPT_CREATE')")
     @PostMapping("/receipt")
     @Operation(summary = "Tạo phiếu nhập kho mới (Draft)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> createGoodsReceipt(@Valid @RequestBody CreateGRRequest request) {
         return new ApiResponseDto<>(gRService.createGoodsReceipt(request));
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('RECEIPT_CANCEL')")
     @DeleteMapping("/receipt/{id}")
     @Operation(summary = "Xoá phiếu nhập (chỉ DRAFT)", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<Void> deleteGoodsReceipt(@PathVariable Long id) {
@@ -60,7 +60,7 @@ public class GRController {
         return new ApiResponseDto<>();
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('RECEIPT_COMPLETE')")
     @PutMapping("/receipt/{id}/completed")
     @Operation(summary = "Hoàn thành nhập kho", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<Void> completeGoodsReceipt(@PathVariable Long id) {

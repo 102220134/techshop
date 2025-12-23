@@ -6,14 +6,6 @@ import lombok.Getter;
 @Getter
 public enum DiscountType {
 
-    AMOUNT("amount", "Giảm giá tiền"),
-    PERCENTAGE("percentage", "Giảm theo phần trăm");
-    @JsonValue
-    private final String code;
-    private final String label;
-
-    DiscountType(String code, String label) {
-        this.code = code;
-        this.label = label;
-    }
+    AMOUNT,
+    PERCENTAGE
 }

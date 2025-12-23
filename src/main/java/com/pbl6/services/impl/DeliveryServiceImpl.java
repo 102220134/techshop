@@ -15,6 +15,7 @@ import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.repositories.*;
 import com.pbl6.services.DeliveryService;
+import com.pbl6.utils.AuthenticationUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,6 +29,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +44,7 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
     private final DebtRepository debtRepository;
+    private final AuthenticationUtil authenticationUtil;
 
     @Override
     @Transactional
@@ -126,10 +129,41 @@ public class DeliveryServiceImpl implements DeliveryService {
 
     @Override
     public PageDto<DeliveryDto> getDelivery(ListDeliveryRequest req) {
-        PageRequest pageable = getPageRequest(req.getPage(), req.getSize(), req.getDir(), req.getOrder());
-        Page<DeliveryDto> pageResult = deliveryRepository.findByStatus(req.getStatus(), pageable).map(this::toDto);
+        UserEntity user = authenticationUtil.getCurrentUser();
+        PageRequest pageable = getPageRequest(
+                req.getPage(),
+                req.getSize(),
+                req.getDir(),
+                req.getOrder()
+        );
+
+        if (user.isAdmin() || user.getIsGlobalStaff()) {
+            Page<DeliveryDto> pageResult =
+                    deliveryRepository
+                            .findByStatus(req.getStatus(), pageable)
+                            .map(this::toDto);
+            return new PageDto<>(pageResult);
+        }
+
+        if (user.getScops() == null || user.getScops().isEmpty()) {
+            return PageDto.empty(pageable);
+        }
+
+        Page<DeliveryDto> pageResult =
+                deliveryRepository
+                        .findByStatusNullableAndLocations(
+                                req.getStatus(),
+                                user.getScops()
+                                        .stream()
+                                        .map(InventoryLocationEntity::getId)
+                                        .collect(Collectors.toSet()),
+                                pageable
+                        )
+                        .map(this::toDto);
+
         return new PageDto<>(pageResult);
     }
+
 
     @Override
     public PageDto<DeliveryItemDto> getDeliveryItems(long id, DeliveryDetailRequest req) {
@@ -137,17 +171,18 @@ public class DeliveryServiceImpl implements DeliveryService {
             throw new AppException(ErrorCode.NOT_FOUND, "Transfer not found");
         }
         PageRequest pageable = getPageRequest(req.getPage(), req.getSize(), req.getDir(), req.getOrder());
-        Page<DeliveryItemDto> pageResult = reservationRepository.findByDeliveryId(id,pageable).map(
-                r-> DeliveryItemDto.builder()
+        Page<DeliveryItemDto> pageResult = reservationRepository.findByDeliveryId(id, pageable).map(
+                r -> DeliveryItemDto.builder()
                         .sku(r.getOrderItem().getSku())
                         .variantId(r.getOrderItem().getVariant().getId())
-                        .thumbnail(r.getOrderItem().getThumbnail())
+                        .thumbnail(r.getOrderItem().getVariant().getThumbnail())
                         .attributes(r.getOrderItem().getVariant().getVariantAttributeValues().stream()
                                 .map(val -> VariantDto.AttributeDto.builder()
                                         .code(val.getAttribute().getCode())
                                         .label(val.getAttribute().getLabel())
                                         .value(val.getAttributeValue().getLabel()).build())
                                 .toList())
+                        .serials(r.getProductSerials().stream().map(ProductSerialEntity::getSerialNo).collect(Collectors.toList()))
                         .quantity(r.getQuantity())
                         .build()
         );
@@ -174,7 +209,8 @@ public class DeliveryServiceImpl implements DeliveryService {
     }
 
     private void handleDeliverySuccess(DeliveryEntity delivery, List<ReservationEntity> reservations) {
-        if (delivery.getStatus() != DeliveryStatus.DELIVERING && delivery.getStatus() != DeliveryStatus.PICKED_UP) return;
+        if (delivery.getStatus() != DeliveryStatus.DELIVERING && delivery.getStatus() != DeliveryStatus.PICKED_UP)
+            return;
 
         for (ReservationEntity res : reservations) {
             List<String> serials = getSerialNumbers(res);
@@ -204,10 +240,10 @@ public class DeliveryServiceImpl implements DeliveryService {
         if (delivery.getStatus() == DeliveryStatus.PENDING) {
             for (ReservationEntity res : reservations) {
                 // Nhả Reserved Stock
-                updateInventoryReserve(res.getLocation(), res.getOrderItem().getVariant(), res.getQuantity(), false);
-
-                List<String> serials = getSerialNumbers(res);
-                productSerialRepository.updateStatusBySerials(serials, ProductSerialStatus.IN_STOCK);
+//                updateInventoryReserve(res.getLocation(), res.getOrderItem().getVariant(), res.getQuantity(), false);
+//
+//                List<String> serials = getSerialNumbers(res);
+//                productSerialRepository.updateStatusBySerials(serials, ProductSerialStatus.IN_STOCK);
 
                 res.setStatus(ReservationStatus.PENDING);
             }
@@ -338,7 +374,7 @@ public class DeliveryServiceImpl implements DeliveryService {
         }
 
         // Cập nhật ngày thanh toán gần nhất (nếu có field)
-         debt.setUpdatedAt(LocalDateTime.now());
+        debt.setUpdatedAt(LocalDateTime.now());
 
         debtRepository.save(debt);
     }
@@ -358,6 +394,9 @@ public class DeliveryServiceImpl implements DeliveryService {
         boolean isShipping = reservations.stream()
                 .anyMatch(r -> r.getStatus() == ReservationStatus.TRANSFERRING);
 
+        boolean allFailed = reservations.stream()
+                .allMatch(r -> r.getStatus() == ReservationStatus.CANCELLED);
+
         // 3. Cập nhật trạng thái
         if (allStrictlySuccess) {
             // CASE: Thành công tuyệt đối -> Đóng đơn
@@ -365,6 +404,15 @@ public class DeliveryServiceImpl implements DeliveryService {
                 freshOrder.setStatus(OrderStatus.COMPLETED);
                 orderRepository.save(freshOrder);
                 log.info("Order ID {} -> COMPLETED (100% Items Delivered)", freshOrder.getId());
+            }
+        } else if (allFailed) {
+            // Tất cả đều thất bại/hủy -> Hủy đơn hàng
+            if (freshOrder.getStatus() != OrderStatus.CANCELLED) {
+                freshOrder.setStatus(OrderStatus.FAILED);
+                // Có thể thêm lý do hủy tự động
+                freshOrder.setNote(freshOrder.getNote() + " [Hệ thống: Tự động hủy do giao thất bại]");
+                orderRepository.save(freshOrder);
+                log.info("Order ID {} -> CANCELLED (All reservations failed)", freshOrder.getId());
             }
         } else if (isShipping) {
             // CASE: Đang giao hàng
@@ -455,6 +503,7 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .codAmount(entity.getCodAmount())
                 .build();
     }
+
     private PageRequest getPageRequest(int page, int size, String dir, String order) {
         Sort sort = Sort.by(dir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC, order);
         return PageRequest.of(page - 1, size, sort);

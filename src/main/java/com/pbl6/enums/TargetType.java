@@ -5,15 +5,17 @@ import lombok.Getter;
 
 @Getter
 public enum TargetType {
+    GLOBAL,
+    PRODUCT
 
-    PRODUCT("amount", "Sản phẩm"),
-    GLOBAL("global","Toàn hệ thống ");
-    @JsonValue
-    private final String code;
-    private final String label;
-
-    TargetType(String code, String label) {
-        this.code = code;
-        this.label = label;
-    }
+//    PRODUCT("amount", "Sản phẩm"),
+//    GLOBAL("global","Toàn hệ thống ");
+//    @JsonValue
+//    private final String code;
+//    private final String label;
+//
+//    TargetType(String code, String label) {
+//        this.code = code;
+//        this.label = label;
+//    }
 }
