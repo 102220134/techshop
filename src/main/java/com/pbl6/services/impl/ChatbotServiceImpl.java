@@ -14,6 +14,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,11 +36,65 @@ public class ChatbotServiceImpl implements ChatbotService {
 
     @Override
     public ChatbotResponseDTO getChatbotResponse(String userMessage, String userKey, String conversationId) {
+        // Nếu là conversation mới (conversationId = null), thử với retry
+        if (conversationId == null || conversationId.isEmpty()) {
+            return getChatbotResponseWithRetry(userMessage, userKey, conversationId, 2);
+        }
+        
+        // Nếu đã có conversationId, gọi trực tiếp
+        return callDifyApi(userMessage, userKey, conversationId);
+    }
+    
+    /**
+     * Gọi Dify API với retry logic cho conversation mới
+     */
+    private ChatbotResponseDTO getChatbotResponseWithRetry(String userMessage, String userKey, String conversationId, int maxRetries) {
+        int attempt = 0;
+        Exception lastException = null;
+        
+        while (attempt < maxRetries) {
+            attempt++;
+            try {
+                log.info("Attempt {} to create new conversation for user: {}", attempt, userKey);
+                ChatbotResponseDTO response = callDifyApi(userMessage, userKey, conversationId);
+                
+                // Nếu thành công, return ngay
+                if (response != null && response.getReplyText() != null && !response.getReplyText().startsWith("Xin lỗi")) {
+                    return response;
+                }
+            } catch (Exception e) {
+                lastException = e;
+                log.warn("Attempt {} failed for user: {}. Error: {}", attempt, userKey, e.getMessage());
+                
+                // Đợi một chút trước khi retry
+                if (attempt < maxRetries) {
+                    try {
+                        Thread.sleep(1000); // 1 second
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        }
+        
+        // Nếu tất cả attempts đều fail, log và return error
+        log.error("All {} attempts failed for new conversation with user: {}", maxRetries, userKey, lastException);
+        return createErrorResponse("Xin lỗi, không thể kết nối với chatbot lúc này. Vui lòng thử lại sau hoặc chuyển sang chế độ nhân viên.");
+    }
+    
+    /**
+     * Gọi Dify API
+     */
+    private ChatbotResponseDTO callDifyApi(String userMessage, String userKey, String conversationId) {
         try {
+            // Luôn sử dụng test_user_123 cho mọi request
+            String userForApi = "test_user_123";
+            log.info("Using fixed user key '{}' for API call (original userKey: {})", userForApi, userKey);
+            
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("query", userMessage);
             requestBody.put("inputs", new HashMap<>());
-            requestBody.put("user", userKey);
+            requestBody.put("user", userForApi);
             requestBody.put("response_mode", "blocking");
             
             if (conversationId != null && !conversationId.isEmpty()) {
@@ -52,7 +108,9 @@ public class ChatbotServiceImpl implements ChatbotService {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
             String fullUrl = chatbotApiUrl + "/chat-messages";
-            log.info("Calling chatbot API for user: {}", userKey);
+            log.info("Calling chatbot API for user: {} (sanitized: {}) with conversationId: {}", 
+                userKey, sanitizedUserKey, conversationId != null ? conversationId : "(new conversation)");
+            log.debug("Request body: {}", requestBody);
             
             ResponseEntity<String> response = restTemplate.exchange(
                     fullUrl,
@@ -71,13 +129,19 @@ public class ChatbotServiceImpl implements ChatbotService {
                 
                 return chatbotResponse;
             } else {
-                log.error("Chatbot API returned non-OK status: {}", response.getStatusCode());
+                log.error("Chatbot API returned non-OK status: {} for user: {}", response.getStatusCode(), userKey);
                 return createErrorResponse("Xin lỗi, hệ thống đang bận. Vui lòng thử lại sau.");
             }
 
+        } catch (org.springframework.web.client.HttpServerErrorException e) {
+            log.error("Dify API server error (500) for user: {}. Response: {}", userKey, e.getResponseBodyAsString());
+            throw new RuntimeException("Dify API 500 error", e);
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.error("Dify API client error ({}) for user: {}. Response: {}", e.getStatusCode(), userKey, e.getResponseBodyAsString());
+            throw new RuntimeException("Dify API client error", e);
         } catch (Exception e) {
-            log.error("Error calling chatbot API", e);
-            return createErrorResponse("Xin lỗi, có lỗi xảy ra khi xử lý yêu cầu của bạn.");
+            log.error("Unexpected error calling chatbot API for user: {}", userKey, e);
+            throw new RuntimeException("Unexpected error", e);
         }
     }
 
@@ -177,5 +241,77 @@ public class ChatbotServiceImpl implements ChatbotService {
         error.setReplyText(message);
         error.setSuggestedProducts(null);
         return error;
+    }
+
+    /**
+     * Sanitize user key để tránh lỗi với Dify API
+     * Dify có thể có giới hạn về độ dài (thường là 64 ký tự) hoặc ký tự đặc biệt
+     * Nếu user key quá dài, sẽ hash MD5 để rút ngắn
+     */
+    private String sanitizeUserKey(String userKey) {
+        if (userKey == null || userKey.isEmpty()) {
+            return "anonymous";
+        }
+        
+        // Xóa các ký tự đặc biệt, chỉ giữ alphanumeric, underscore và dash
+        String sanitized = userKey.replaceAll("[^a-zA-Z0-9_-]", "_");
+        
+        // Nếu quá dài (> 32 ký tự), hash MD5 phần sau
+        if (sanitized.length() > 32) {
+            try {
+                String prefix = sanitized.substring(0, 16); // Giữ prefix để dễ debug
+                String toHash = sanitized.substring(16);
+                
+                MessageDigest md = MessageDigest.getInstance("MD5");
+                byte[] hashBytes = md.digest(toHash.getBytes(StandardCharsets.UTF_8));
+                
+                // Convert to hex string (first 8 chars only)
+                StringBuilder hexString = new StringBuilder();
+                for (int i = 0; i < Math.min(4, hashBytes.length); i++) {
+                    String hex = Integer.toHexString(0xff & hashBytes[i]);
+                    if (hex.length() == 1) hexString.append('0');
+                    hexString.append(hex);
+                }
+                
+                String result = prefix + "_" + hexString.toString();
+                log.debug("Sanitized user key: {} -> {}", userKey, result);
+                return result;
+            } catch (Exception e) {
+                log.warn("Failed to hash user key, using truncated version", e);
+                return sanitized.substring(0, 32);
+            }
+        }
+        
+        return sanitized;
+    }
+    
+    /**
+     * Rút ngắn user key xuống tối đa 16 ký tự để tránh lỗi từ Dify API
+     * Format: GUEST_xxxxx (giữ prefix GUEST_ và lấy phần cuối)
+     */
+    private String getShortUserKey(String userKey) {
+        if (userKey == null || userKey.length() <= 16) {
+            return userKey;
+        }
+        
+        // Giữ prefix (GUEST_ hoặc USER_) và lấy 10 ký tự cuối
+        if (userKey.startsWith("GUEST_")) {
+            String suffix = userKey.substring(6); // Bỏ "GUEST_"
+            if (suffix.length() <= 10) {
+                return userKey;
+            }
+            // Lấy 10 ký tự cuối của suffix
+            return "GUEST_" + suffix.substring(suffix.length() - 10);
+        } else if (userKey.startsWith("USER_")) {
+            String suffix = userKey.substring(5); // Bỏ "USER_"
+            if (suffix.length() <= 11) {
+                return userKey;
+            }
+            // Lấy 11 ký tự cuối của suffix
+            return "USER_" + suffix.substring(suffix.length() - 11);
+        }
+        
+        // Fallback: lấy 16 ký tự cuối
+        return userKey.substring(userKey.length() - 16);
     }
 }
