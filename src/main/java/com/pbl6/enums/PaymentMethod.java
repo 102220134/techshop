@@ -11,7 +11,9 @@ import lombok.Getter;
 public enum PaymentMethod {
     COD( "Thanh toán khi nhận hàng"),
     BANK( "Chuyển khoản"),
+    CASH_AT_COUNTER("Thanh toán tại quầy"),
     VNPAY("Ví điện tử");
+
 
     private final String label;
 

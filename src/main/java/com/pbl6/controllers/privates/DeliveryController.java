@@ -28,7 +28,7 @@ public class DeliveryController {
 
     private final DeliveryService deliveryService;
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('DELIVERY_CREATE')")
     @PostMapping()
     @Operation(summary = "Tạo phiếu giao hàng", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> create(@RequestBody CreateDeliveryRequest request) {
@@ -36,21 +36,21 @@ public class DeliveryController {
     }
 
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('DELIVERY_PROGRESS')")
     @PutMapping("/{id}/pickup")
     @Operation(summary = "Bắt đầu lấy hàng", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> pickUp(@PathVariable long id) {
         deliveryService.updateDeliveryStatus(id, DeliveryStatus.PICKED_UP);
         return new ApiResponseDto<>();
     }
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('DELIVERY_PROGRESS')")
     @PutMapping("/{id}/delivering")
     @Operation(summary = "đang giao", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> delivering(@PathVariable long id) {
         deliveryService.updateDeliveryStatus(id, DeliveryStatus.DELIVERING);
         return new ApiResponseDto<>();
     }
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('DELIVERY_PROGRESS')")
     @PutMapping("/{id}/delivered")
     @Operation(summary = "đã giao", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> delivered(@PathVariable long id) {
@@ -58,7 +58,7 @@ public class DeliveryController {
         return new ApiResponseDto<>();
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('DELIVERY_CANCEL')")
     @PutMapping("/{id}/canceled")
     @Operation(summary = "huỷ", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> canceled(@PathVariable long id) {
@@ -66,21 +66,21 @@ public class DeliveryController {
         return new ApiResponseDto<>();
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('DELIVERY_PROGRESS')")
     @PutMapping("/{id}/failed")
     @Operation(summary = "giao thất bại", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> failed(@PathVariable long id) {
         deliveryService.updateDeliveryStatus(id,DeliveryStatus.FAILED);
         return new ApiResponseDto<>();
     }
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('DELIVERY_READ')")
     @GetMapping("/list")
     @Operation(summary = "Danh sách phiếu giao hàng", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> getTransfers(@ParameterObject ListDeliveryRequest req) {
         return new ApiResponseDto<>(deliveryService.getDelivery(req));
     }
 
-    @PreAuthorize("hasAuthority('INVENTORY_READ')")
+    @PreAuthorize("hasAuthority('DELIVERY_READ')")
     @GetMapping("/detail/{id}")
     @Operation(summary = "Xem chi tiết phiếu chuyển", security = {@SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<?> getTransferDetail(

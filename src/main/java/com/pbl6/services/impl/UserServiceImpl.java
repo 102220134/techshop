@@ -6,6 +6,7 @@ import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.user.UserAddressDto;
 import com.pbl6.dtos.response.user.UserDetailDto;
 import com.pbl6.dtos.response.user.UserDto;
+import com.pbl6.entities.InventoryLocationEntity;
 import com.pbl6.entities.RoleEntity;
 import com.pbl6.entities.UserAddressEntity;
 import com.pbl6.entities.UserEntity;
@@ -14,6 +15,7 @@ import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.mapper.UserAddressMapper;
 import com.pbl6.mapper.UserMapper;
+import com.pbl6.repositories.InventoryLocationRepository;
 import com.pbl6.repositories.RoleRepository;
 import com.pbl6.repositories.UserAddressRepository;
 import com.pbl6.repositories.UserRepository;
@@ -39,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -54,6 +57,7 @@ public class UserServiceImpl implements UserService {
     private final UserAddressMapper userAddressMapper;
     private final EntityManager em;
     private final AuthenticationUtil authenticationUtil;
+    private final InventoryLocationRepository inventoryLocationRepository;
 
     @Override
     @Transactional
@@ -136,7 +140,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDetailDto getUserInfo(Long userId) {
-        UserEntity targetUser = userRepository.findById(userId)
+        UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> {
                     log.warn("User not found for userId: {}", userId);
                     return new AppException(ErrorCode.NOT_FOUND,"user not found");
@@ -145,16 +149,18 @@ public class UserServiceImpl implements UserService {
         UserEntity currentUser = authenticationUtil.getCurrentUser();
 
         if (Objects.equals(currentUser.getId(), userId)) {
-            return userMapper.toUserDetailDto(targetUser);
+            return userMapper.toUserDetailDto(user);
+        }
+        if(currentUser.isAdmin()){
+            return userMapper.toUserDetailDto(user);
+        }
+        if(user.isStaff() && currentUser.hasAuthority("STAFF_READ")){
+            return userMapper.toUserDetailDto(user);
+        }
+        if(user.isCustomer() && currentUser.hasAuthority("CUSTOMER_READ")){
+            return userMapper.toUserDetailDto(user);
         }
 
-        if (currentUser.isAdmin()) {
-            return userMapper.toUserDetailDto(targetUser);
-        }
-
-        if (currentUser.hasAuthority("USER_READ_CUSTOMER") && targetUser.isCustomer()) {
-            return userMapper.toUserDetailDto(targetUser);
-        }
 
         throw new AppException(ErrorCode.FORBIDDEN);
     }
@@ -213,10 +219,27 @@ public class UserServiceImpl implements UserService {
                     return new AppException(ErrorCode.NOT_FOUND,"User not found");
                 });
 
-        user.setIsActive(request.getIsActive());
-        UserEntity updatedUser = userRepository.save(user);
 
-        return userMapper.toUserDetailDto(updatedUser);
+        UserEntity currentUser = authenticationUtil.getCurrentUser();
+        if(currentUser.isAdmin()){
+            user.setIsActive(request.getIsActive());
+            UserEntity updatedUser = userRepository.save(user);
+
+            return userMapper.toUserDetailDto(updatedUser);
+        }
+        if(user.isStaff() && currentUser.hasAuthority("STAFF_UPDATE")){
+            user.setIsActive(request.getIsActive());
+            UserEntity updatedUser = userRepository.save(user);
+
+            return userMapper.toUserDetailDto(updatedUser);
+        }
+        if(user.isCustomer() && currentUser.hasAuthority("CUSTOMER_UPDATE")){
+            user.setIsActive(request.getIsActive());
+            UserEntity updatedUser = userRepository.save(user);
+
+            return userMapper.toUserDetailDto(updatedUser);
+        }
+        throw new AppException(ErrorCode.FORBIDDEN);
     }
 
     @Override
@@ -382,22 +405,18 @@ public class UserServiceImpl implements UserService {
     @Override
     public PageDto<UserDto> searchCustomers(SearchUserRequest request) {
         Specification<UserEntity> spec = Specification
-                .where(UserSpecification.hasName(request.getName()))
-                .and(UserSpecification.hasPhone(request.getPhone()))
+                .where(UserSpecification.hasKeyword(request.getKeyword()))
                 .and(UserSpecification.isActive(request.getIsActive()))
                 .and(UserSpecification.hasCustomerRole());
-
         return searchUsers(request, spec);
     }
 
     @Override
     public PageDto<UserDto> searchStaffs(SearchUserRequest request) {
         Specification<UserEntity> spec = Specification
-                .where(UserSpecification.hasName(request.getName()))
-                .and(UserSpecification.hasPhone(request.getPhone()))
+                .where(UserSpecification.hasKeyword(request.getKeyword()))
                 .and(UserSpecification.isActive(request.getIsActive()))
                 .and(UserSpecification.hasStaffRole());
-
         return searchUsers(request, spec);
     }
 
@@ -410,6 +429,93 @@ public class UserServiceImpl implements UserService {
                 });
         return userMapper.toUserDetailDto(user);
     }
+
+    @Transactional
+    @Override
+    public UserDto createStaff(CreateStaffRequest request) {
+        // 1. Check phone tồn tại
+        if (userRepository.existsByPhone(request.getPhone())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,"SDT đã tồn tại");
+        }
+        // 2. Check email tồn tại
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,"Email đã tồn tại");
+        }
+
+            UserEntity newUser = new UserEntity();
+            newUser.setName(request.getName());
+            newUser.setEmail(request.getEmail());
+            newUser.setPhone(request.getPhone());
+            newUser.setPassword(passwordEncoder.encode(request.getPassword()));
+            newUser.setIsGlobalStaff(false);
+            Set<InventoryLocationEntity> locations = inventoryLocationRepository.findByIds(request.getScops());
+            newUser.setScops(locations);
+            Set<RoleEntity> roles = roleRepository.findAllByNameIn(request.getRoles());
+            newUser.setRoles(roles);
+            newUser.setIsGuest(false);
+            newUser.setIsActive(true);
+            newUser = userRepository.save(newUser);
+            return userMapper.toUserDto(newUser);
+    }
+
+    @Override
+    @Transactional
+    public UserDto updateStaff(Long userId, UpdateStaffRequest request) {
+
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR,"Nhân viên không tồn tại"));
+
+        // 1️⃣ Check email trùng (trừ chính nó)
+        if (!user.getEmail().equals(request.getEmail())
+            && userRepository.existsByEmail(request.getEmail())) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,"Email đã được sử dụng");
+        }
+
+        // 3️⃣ Update basic info
+        user.setName(request.getName());
+        user.setEmail(request.getEmail());
+        user.setGender(request.getGender());
+        user.setBirth(request.getBirth());
+        user.setIsActive(request.getIsActive());
+        user.setIsGlobalStaff(request.getIsGlobalStaff());
+
+        // 4️⃣ Update password (nếu có)
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+
+        // 5️⃣ Update roles
+        Set<RoleEntity> roles = roleRepository.findAllByNameIn(request.getRoles());
+        if (roles.isEmpty()) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR,"Có role không tồn tại");
+        }
+        user.setRoles(roles);
+
+        // 6️⃣ Update scopes
+        if (request.getScops() != null) {
+            Set<InventoryLocationEntity> locations =
+                    inventoryLocationRepository.findAllById(request.getScops())
+                            .stream()
+                            .collect(Collectors.toSet());
+
+
+//            if (locations.size() != request.getScops().size()) {
+//                throw new BusinessException("Có kho / địa điểm không tồn tại");
+//            }
+
+            user.setScops(locations);
+        }
+
+        // 7️⃣ Save
+        UserEntity savedUser = userRepository.save(user);
+        return userMapper.toUserDto(savedUser);
+    }
+
+    @Override
+    public UserDto createGuest(CreateGuestRequest request) {
+        return userMapper.toUserDto(createOrGetGuest(request.getEmail(),request.getPhone(),request.getName()));
+    }
+
 
     private PageDto<UserDto> searchUsers(SearchUserRequest request, Specification<UserEntity> spec) {
         CriteriaBuilder cb = em.getCriteriaBuilder();

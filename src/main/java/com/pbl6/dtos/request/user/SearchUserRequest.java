@@ -16,15 +16,9 @@ import lombok.experimental.FieldDefaults;
 public class SearchUserRequest {
     Integer size = 20;
     Integer page = 1;
-    String name;
     Boolean isActive;
+    String keyword;
 
-    @Pattern(
-            regexp = "^0[0-9]{0,9}$",
-            message = "INVALID_PHONE_FORMAT"
-    )
-
-    private String phone;
     @Schema(allowableValues = {"create_at", "total_amount_spent","total_orders"})
     String order = "create_at";
     @Schema(allowableValues = {"asc", "desc"})

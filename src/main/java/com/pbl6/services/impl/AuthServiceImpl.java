@@ -3,12 +3,10 @@ package com.pbl6.services.impl;
 import com.pbl6.dtos.request.auth.LoginRequest;
 import com.pbl6.dtos.response.auth.LoginDto;
 import com.pbl6.dtos.response.auth.UserLogin;
-import com.pbl6.entities.PermissionEntity;
-import com.pbl6.entities.RefreshTokenEntity;
-import com.pbl6.entities.RoleEntity;
-import com.pbl6.entities.UserEntity;
+import com.pbl6.entities.*;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
+import com.pbl6.repositories.InventoryLocationRepository;
 import com.pbl6.repositories.RefreshTokenRepository;
 import com.pbl6.repositories.UserRepository;
 import com.pbl6.services.AuthService;
@@ -33,6 +31,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final InventoryLocationRepository inventoryLocationRepository;
 
     @Value("${jwt.expiration.refresh}")
     private long expirationRefresh;
@@ -160,6 +159,8 @@ public class AuthServiceImpl implements AuthService {
         userLogin.setId(userEntity.getId());
         userLogin.setName(userEntity.getName());
         userLogin.setRoles(userEntity.getRoles().stream().map(RoleEntity::getName).toList());
+        userLogin.setGlobalStaff(userEntity.getIsGlobalStaff());
+        userLogin.setScops(userEntity.getScops().stream().map(InventoryLocationEntity::getId).toList());
         Set<String> permissions = userEntity.getRoles()
                 .stream()
                 .flatMap(role ->
@@ -170,8 +171,8 @@ public class AuthServiceImpl implements AuthService {
                 .collect(Collectors.toSet());
 
         if (
-                permissions.contains("USER_READ_CUSTOMER") ||
-                permissions.contains("USER_READ_STAFF")
+                permissions.contains("STAFF_READ") ||
+                permissions.contains("CUSTOMER_READ")
         ) {
             permissions.add("USER_READ");
         }

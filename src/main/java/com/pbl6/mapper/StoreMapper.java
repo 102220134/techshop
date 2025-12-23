@@ -11,6 +11,7 @@ public class StoreMapper {
         StoreDto dto = new StoreDto();
         dto.setId(e.getId());
         dto.setName(e.getName());
+        dto.setLocationId(e.getInventoryLocation().getId());
 
         StoreDto.Location location = new StoreDto.Location();
         location.setLatitude(e.getLatitude());

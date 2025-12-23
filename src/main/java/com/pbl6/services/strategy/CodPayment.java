@@ -22,7 +22,7 @@ public class CodPayment implements PaymentStrategy {
 
     @Override
     public PaymentInitResponse initiate(OrderEntity order) {
-        debtService.create(order);
+        if (order.isOnline()) debtService.create(order);
         return PaymentInitResponse.builder()
                 .orderId(order.getId())
                 .grossAmount(order.getOrderItems().stream()

@@ -8,6 +8,8 @@ import org.springframework.data.jpa.domain.Specification;
 
 import jakarta.persistence.criteria.Join;
 
+import java.util.List;
+
 public class OrderSpecification {
 
     public static Specification<OrderEntity> hasIdEqual(Long id) {
@@ -63,13 +65,22 @@ public class OrderSpecification {
                 toDate == null ? null : cb.lessThanOrEqualTo(root.get("createdAt"), toDate);
     }
 
-    /** Gộp tất cả lại — chỉ là optional tiện dụng */
+    public static Specification<OrderEntity> belongsToStores(List<Long> storeIds) {
+        return (root, query, cb) -> {
+            if (storeIds == null || storeIds.isEmpty()) {
+                return null;
+            }
+            return root.get("store").get("id").in(storeIds);
+        };
+    }
+
+
     public static Specification<OrderEntity> build(SearchOrderRequest req) {
         return Specification
                 .where(hasIdEqual(req.getId()))
                 .and(hasStatus(req.getStatus()))
                 .and(isOnline(req.getIsOnline()))
-                .and(belongsToStore(req.getStoreId()))
+//                .and(belongsToStore(req.getStoreId()))
                 .and(hasReceiveMethod(req.getReceiveMethod()))
                 .and(hasPaymentMethod(req.getPaymentMethod()))
                 .and(hasCustomerKeyword(req.getCustomerKeyword()))

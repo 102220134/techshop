@@ -41,5 +41,6 @@ public class OrderDetailDto {
         private String address;
         private ReservationStatus status;
         private TransferStatus transferStatus;
+        private List<String> serials;
     }
 }

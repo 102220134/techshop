@@ -43,6 +43,9 @@ public class UserMapper {
         return UserDto.builder()
                 .id(entity.getId())
                 .name(entity.getName())
+                .gender(entity.getGender())
+                .birth(entity.getBirth())
+//                .roles()
                 .email(entity.getEmail())
                 .phone(entity.getPhone())
                 .isActive(entity.getIsActive())
@@ -77,6 +80,7 @@ public class UserMapper {
                 .roles(entity.getRoles().stream().map(RoleEntity::getName).toList())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .isGlobalStaff(entity.getIsGlobalStaff())
                 .addresses(
                         entity.getAddresses() != null
                                 ? entity.getAddresses().stream()
@@ -84,6 +88,14 @@ public class UserMapper {
                                 .toList()
                                 : null
                 )
+                .scops(
+                        entity.getScops() != null
+                                ? entity.getScops().stream()
+                                .map(location -> location.getId())
+                                .toList()
+                                : null
+                )
+
                 .build();
     }
 

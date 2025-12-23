@@ -56,7 +56,7 @@ public class OrderController {
     // ===== CÁC ENDPOINT CẬP NHẬT TRẠNG THÁI (ĐÃ SỬA VÀ BỔ SUNG) =====
     // ================================================================
 
-    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
+    @PreAuthorize("hasAuthority('ORDER_CONFIRM')")
     @PutMapping("/confirm/{orderId}")
     @Operation(summary = "Xác nhận đơn hàng (VD: PENDING -> CONFIRMED)", security = { @SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<String> confirmOrder(
@@ -66,7 +66,7 @@ public class OrderController {
         return new ApiResponseDto<>("Order confirmed successfully");
     }
 
-    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
+    @PreAuthorize("hasAuthority('ORDER_CONFIRM')")
     @PutMapping("/delivering/{orderId}")
     @Operation(summary = "Cập nhật Đang Giao Hàng (CONFIRMED -> DELIVERING)", security = { @SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<String> startDelivery(
@@ -79,7 +79,7 @@ public class OrderController {
     }
 
 
-    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
+    @PreAuthorize("hasAuthority('ORDER_COMPLETE')")
     @PutMapping("/complete/{orderId}")
     @Operation(summary = "Hoàn thành đơn (DELIVERED -> COMPLETED)", security = { @SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<String> completeOrder(
@@ -91,7 +91,7 @@ public class OrderController {
     }
 
 
-    @PreAuthorize("hasAuthority('ORDER_UPDATE_STATUS')")
+    @PreAuthorize("hasAuthority('ORDER_CANCEL')")
     @PutMapping("/cancel/{orderId}")
     @Operation(summary = "Huỷ đơn hàng (VD: PENDING -> CANCELLED)", security = { @SecurityRequirement(name = "bearerAuth")})
     public ApiResponseDto<String> cancelOrder(

@@ -4,8 +4,10 @@ import com.pbl6.dtos.response.StoreDto;
 import com.pbl6.dtos.response.inventory.InventoryLocationDto;
 import com.pbl6.dtos.response.order.OrderItemDto;
 import com.pbl6.dtos.response.product.VariantDto;
+import com.pbl6.entities.AddressSnapshot;
 import com.pbl6.enums.ReceiveMethod;
 import com.pbl6.enums.ReservationStatus;
+import jakarta.mail.Address;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,6 +25,7 @@ public class ReservationDto {
     private ReceiveMethod receiveMethod;
     private String deliveryAddress;
     private StoreDto destination;
+//    private AddressSnapshot deliveryAddress;
     private long orderId;
     private String sku;
     private String thumbnail;
@@ -30,4 +33,5 @@ public class ReservationDto {
     private int quantity;
     private LocalDateTime createdAt;
     private  LocalDateTime updatedAt;
+    List<String> serials;
 }

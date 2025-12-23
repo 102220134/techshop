@@ -8,7 +8,6 @@ import lombok.Data;
 public class ListReservationRequest {
     private ReservationStatus status;
     private ReceiveMethod receiveMethod;
-    private Long storeId;
     private String order = "createdAt";
     private String dir = "desc";
     private int page = 1;

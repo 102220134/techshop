@@ -24,4 +24,9 @@ public interface UserService {
     PageDto<UserDto> searchCustomers(SearchUserRequest request);
     PageDto<UserDto> searchStaffs(SearchUserRequest request);
     UserDetailDto getUserInfoByPhone(String phone);
+
+    UserDto createStaff(CreateStaffRequest request);
+    UserDto updateStaff(Long userId, UpdateStaffRequest request);
+
+    UserDto createGuest(CreateGuestRequest request);
 }

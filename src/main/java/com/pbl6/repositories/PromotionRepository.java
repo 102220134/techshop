@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -40,6 +41,10 @@ public interface PromotionRepository extends JpaRepository<PromotionEntity, Long
       )
 """)
     List<PromotionEntity> findActivePromotionsForProducts(@Param("productIds") List<Long> productIds);
+
+    @Query("SELECT p FROM PromotionEntity p WHERE p.isActive = true " +
+           "AND p.startDate <= :now AND p.endDate >= :now")
+    List<PromotionEntity> findAllActivePromotions(@Param("now") LocalDateTime now);
 
 
 }

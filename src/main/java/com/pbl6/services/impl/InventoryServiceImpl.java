@@ -3,6 +3,7 @@ package com.pbl6.services.impl;
 import com.pbl6.dtos.request.inventory.SearchInventoryRequest;
 import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.inventory.InventoryDto;
+import com.pbl6.dtos.response.product.VariantDto;
 import com.pbl6.entities.*;
 import com.pbl6.enums.InventoryLocationType;
 import com.pbl6.exceptions.AppException;
@@ -105,49 +106,84 @@ public class InventoryServiceImpl implements InventoryService {
                 pageable
         );
 
-        // Map để gom nhóm Product
-        Map<Long, InventoryDto> inventoryDtoMap = new LinkedHashMap<>();
+        // Map ProductId -> InventoryDto
+        Map<Long, InventoryDto> productMap = new LinkedHashMap<>();
 
-        // Set để theo dõi Variant đã thêm (tránh trùng lặp)
-        // Key có thể là variantId đơn thuần nếu variantId là unique toàn cục
-        Set<Long> processedVariantIds = new HashSet<>();
+        // Map phụ để gom nhóm và cộng dồn: SKU -> VariantAggregator
+        // VariantAggregator là class trung gian để giữ số cộng dồn
+        Map<String, VariantAggregator> aggregatorMap = new HashMap<>();
 
         for (InventoryEntity inv : pageResult.getContent()) {
             var variant = inv.getVariant();
             var product = variant.getProduct();
+            String sku = variant.getSku();
 
-            // Nếu variant này đã được xử lý rồi thì bỏ qua ngay
-            if (processedVariantIds.contains(variant.getId())) {
-                continue;
-            }
-
-            // Tạo hoặc lấy InventoryDto của Product
-            InventoryDto inventoryDto = inventoryDtoMap.computeIfAbsent(product.getId(), k -> {
+            // 1. Đảm bảo InventoryDto của Product tồn tại
+            InventoryDto productDto = productMap.computeIfAbsent(product.getId(), k -> {
                 InventoryDto dto = new InventoryDto();
                 dto.setProductId(product.getId());
                 dto.setProductName(product.getName());
-                dto.setVariants(new ArrayList<>()); // Dùng List để trả về
+                dto.setVariants(new ArrayList<>());
                 return dto;
             });
 
-            // Add variant vào list và đánh dấu đã xử lý
-            inventoryDto.getVariants().add(variantMapper.toDto(variant));
-            processedVariantIds.add(variant.getId());
+            // 2. Logic cộng dồn theo SKU
+            if (!aggregatorMap.containsKey(sku)) {
+                // Nếu SKU chưa tồn tại trong trang này, tạo aggregator mới
+                VariantAggregator aggregator = new VariantAggregator(variant, inv.getStock(), inv.getAvailableStock());
+                aggregatorMap.put(sku, aggregator);
+
+                // Lưu aggregator tạm thời vào danh sách của product để tí nữa map sang record
+                // Chúng ta dùng list tạm thời hoặc xử lý sau vòng lặp
+            } else {
+                // Nếu SKU đã tồn tại, cộng dồn giá trị
+                aggregatorMap.get(sku).addStock(inv.getStock(), inv.getAvailableStock());
+            }
         }
 
-        // Tạo Page giả để wrap vào PageDto
-        List<InventoryDto> groupedList = new ArrayList<>(inventoryDtoMap.values());
+        // 3. Chuyển đổi Aggregator sang VariantDto (Record) và gán vào ProductDto
+        // Cần đảm bảo thứ tự Variant thuộc về đúng Product
+        aggregatorMap.values().forEach(agg -> {
+            var productDto = productMap.get(agg.variant.getProduct().getId());
 
-        // Lưu ý: pageResult.getTotalElements() là tổng số dòng Inventory,
-        // không phải tổng số Product sau khi gom nhóm.
-        // Tuy nhiên với UI admin thường chấp nhận được.
-        Page<InventoryDto> dtoPage = new PageImpl<>(
-                groupedList,
+            var originalDto = variantMapper.toDto(agg.variant);
+            var finalVariantDto = new VariantDto(
+                    originalDto.id(),
+                    originalDto.sku(),
+                    originalDto.thumbnail(),
+                    originalDto.price(),
+                    originalDto.specialPrice(),
+                    originalDto.attributes(),
+                    agg.totalAvailable    , // Số đã cộng dồn
+                    agg.totalStock      // Số đã cộng dồn
+
+            );
+            productDto.getVariants().add(finalVariantDto);
+        });
+
+        return new PageDto<>(new PageImpl<>(
+                new ArrayList<>(productMap.values()),
                 pageable,
                 pageResult.getTotalElements()
-        );
+        ));
+    }
 
-        return new PageDto<>(dtoPage);
+    // Helper class để tích lũy Stock (vì Record không cho set giá trị)
+    private static class VariantAggregator {
+        final VariantEntity variant;
+        int totalStock;
+        int totalAvailable;
+
+        VariantAggregator(VariantEntity variant, int stock, int available) {
+            this.variant = variant;
+            this.totalStock = stock;
+            this.totalAvailable = available;
+        }
+
+        void addStock(int stock, int available) {
+            this.totalStock += stock;
+            this.totalAvailable += available;
+        }
     }
 
 

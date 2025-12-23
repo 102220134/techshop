@@ -8,13 +8,16 @@ import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.order.OrderDetailDto;
 import com.pbl6.dtos.response.order.OrderDto;
 import com.pbl6.dtos.response.order.UserOrderDetailDto;
+import com.pbl6.dtos.response.payment.PaymentInitResponse;
 import com.pbl6.entities.*;
 import com.pbl6.enums.*;
 import com.pbl6.exceptions.AppException;
 import com.pbl6.exceptions.ErrorCode;
 import com.pbl6.mapper.OrderMapper;
 import com.pbl6.repositories.*;
+import com.pbl6.services.InventoryService;
 import com.pbl6.services.OrderService;
+import com.pbl6.services.PaymentService;
 import com.pbl6.services.PromotionService;
 import com.pbl6.specifications.OrderSpecification;
 import com.pbl6.utils.AuthenticationUtil;
@@ -59,17 +62,15 @@ public class OrderServiceImpl implements OrderService {
     WareHouseRepository wareHouseRepository;
     UserRepository userRepository;
     DebtRepository debtRepository;
+    private final InventoryService inventoryService;
+    private final PaymentService paymentService;
+    private final StockMovementRepository stockMovementRepository;
 
-    // ========================================================================
-    // CREATE ORDER
-    // ========================================================================
     @Override
-
     @Transactional
-
     public OrderEntity createOrder(CreateOrderRequest req) {
         UserEntity buyer = userRepository.findById(req.getUserId()).get();
-        // Chuẩn bị store (nếu có)
+
         StoreEntity store = null;
         if (req.getStoreId() != null) {
             store = storeRepository.findById(req.getStoreId())
@@ -109,7 +110,7 @@ public class OrderServiceImpl implements OrderService {
             BigDecimal itemSubtotal = discountedPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             orderSubtotal = orderSubtotal.add(itemSubtotal);
             orderItems.add(OrderItemEntity.builder()
-                    .order(null) // gán sau khi order được save
+                    .order(null)
                     .variant(variant)
                     .productName(variant.getProduct().getName())
                     .sku(variant.getSku())
@@ -122,9 +123,6 @@ public class OrderServiceImpl implements OrderService {
                     .build());
         }
 
-
-        // ----------------- Khởi tạo entity -----------------
-
         OrderEntity order = OrderEntity.builder()
                 .user(buyer)
                 .store(store)
@@ -136,7 +134,7 @@ public class OrderServiceImpl implements OrderService {
                 .isOnline(req.getIsOnline())
                 .subtotal(orderSubtotal)
                 .voucherDiscount(BigDecimal.ZERO)
-                .totalAmount(orderSubtotal) // có thể trừ voucher sau này
+                .totalAmount(orderSubtotal)
                 .paidAmount(BigDecimal.ZERO)
                 .remainingAmount(orderSubtotal)
                 .createdAt(LocalDateTime.now())
@@ -169,7 +167,7 @@ public class OrderServiceImpl implements OrderService {
                 "Customer not found"
         );
         UserEntity sale; // nhân viên phụ trách đơn hàng
-        if (currentUser.isAdmin()) {
+        if (currentUser.isAdmin() || currentUser.getIsGlobalStaff()) {
             // ✅ ADMIN có thể chọn bất kỳ sale nào
             sale = null;
             if (req.getSaleId() != null) {
@@ -179,19 +177,32 @@ public class OrderServiceImpl implements OrderService {
                 );
             }
         } else {
+            boolean hasScope = currentUser.getScops()
+                    .stream()
+                    .anyMatch(loc -> loc.getId().equals(store.getInventoryLocation().getId()));
             // ✅ NHÂN VIÊN bán hàng
-            // Kiểm tra cửa hàng của họ có trùng storeId hay không
-            if (!currentUser.getStoreId().equals(req.getStoreId())) {
+            if (!hasScope) {
                 throw new AppException(ErrorCode.FORBIDDEN, "You cannot create order for another store");
             }
-            // Kiểm tra saleId có trùng với chính họ không
             if (req.getSaleId() != null && !req.getSaleId().equals(currentUser.getId())) {
                 throw new AppException(ErrorCode.FORBIDDEN, "Sale ID does not match current user");
             }
-            sale = currentUser;
         }
         req.setIsOnline(false);
+        req.setPaymentMethod(PaymentMethod.COD);
+        req.setReceiveMethod(ReceiveMethod.PICKUP);
+
         OrderEntity order = createOrder(req);
+
+        //Giữ hàng
+        inventoryService.handlePickupAtStore(store, order.getOrderItems());
+
+        //Tạo yêu cầu payment
+        PaymentInitResponse payRes = paymentService.create(order);
+
+        //tạo xong xác nhận luôn
+        confirmOrder(order.getId());
+
         return order;
     }
 
@@ -298,25 +309,41 @@ public class OrderServiceImpl implements OrderService {
     public void cancelOrder(Long orderId) {
         OrderEntity order = entityUtil.ensureExists(orderRepository.findById(orderId), "Order not found");
 
-        if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Order is already CANCELLED");
-        }
-        if (order.getStatus() == OrderStatus.DELIVERING || order.getStatus() == OrderStatus.COMPLETED) {
-            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Cannot cancel order in status: " + order.getStatus());
+        if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.COMPLETED) {
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Không thể hủy đơn hàng ở trạng thái này");
         }
 
-        // --- CHECK PAYMENT STATUS (Yêu cầu mới) ---
-        boolean hasPaidPayment = order.getPayments().stream()
-                .anyMatch(p -> p.getStatus() == PaymentStatus.PAID);
+        // Nếu đơn đang giao (DELIVERING), thường phải qua luồng trả hàng của DeliveryService
+        // để kiểm soát hàng vật lý. Ở đây ta chỉ cho phép hủy PENDING/CONFIRMED.
+        if (order.getStatus() == OrderStatus.DELIVERING) {
+            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Đơn đang giao, vui lòng xử lý thất bại bên vận đơn");
+        }
 
-        if (hasPaidPayment) {
-            // Nếu đã thanh toán -> Bắt buộc phải Hoàn tiền trước (Hoặc admin xử lý thủ công)
-            // Tùy nghiệp vụ, ở đây ta throw lỗi để chặn hủy ngang
-            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,
-                    "Đơn hàng đã được thanh toán. Vui lòng thực hiện hoàn tiền (Refund) trước khi hủy đơn.");
+        // Xử lý hoàn tiền nếu đã có thanh toán thành công
+        if (order.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
+            handleRefund(order);
         }
 
         performOrderCancellation(order);
+    }
+
+    private void handleRefund(OrderEntity order) {
+        BigDecimal refundAmount = order.getPaidAmount();
+
+        PaymentEntity refund = new PaymentEntity();
+        refund.setOrder(order);
+        refund.setAmount(refundAmount.negate()); // Số âm để trừ vào tổng doanh thu
+        refund.setMethod(order.getPaymentMethod());
+        refund.setStatus(PaymentStatus.REFUNDED); // Ghi nhận đã hoàn (hoặc PENDING_REFUND nếu cần kế toán duyệt)
+        refund.setTransactionRef("REFUND_" + order.getId() + "_" + System.currentTimeMillis());
+        refund.setCreatedAt(LocalDateTime.now());
+
+        paymentRepository.save(refund);
+
+        // Cập nhật lại số dư trên đơn hàng về 0
+        order.setPaidAmount(BigDecimal.ZERO);
+        order.setRemainingAmount(order.getTotalAmount());
+        order.setNote("Đã hoàn tiền");
     }
 
     @Override
@@ -373,14 +400,38 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public PageDto<OrderDto> searchOrders(SearchOrderRequest req) {
+
+        UserEntity user = authenticationUtil.getCurrentUser();
+
         Sort sort = req.getDir().equalsIgnoreCase("ASC")
                 ? Sort.by(req.getSort()).ascending()
                 : Sort.by(req.getSort()).descending();
+
         Pageable pageable = PageRequest.of(req.getPage(), req.getSize(), sort);
+
         Specification<OrderEntity> spec = OrderSpecification.build(req);
+
+        // ✅ Chỉ staff thường mới bị giới hạn scope
+        if (!user.isAdmin() && !Boolean.TRUE.equals(user.getIsGlobalStaff())) {
+
+            List<Long> storeIds = storeRepository
+                    .findByInventoryLocationIn(user.getScops())
+                    .stream()
+                    .map(StoreEntity::getId)
+                    .toList();
+
+            // ⚠️ Nếu staff không có store nào → không trả dữ liệu
+            if (storeIds.isEmpty()) {
+                return PageDto.empty(pageable);
+            }
+
+            spec = spec.and(OrderSpecification.belongsToStores(storeIds));
+        }
+
         Page<OrderEntity> page = orderRepository.findAll(spec, pageable);
         return new PageDto<>(page.map(orderMapper::toDto));
     }
+
 
     @Override
     public UserOrderDetailDto getOrderDetailByUser(Long orderId) {
@@ -444,6 +495,7 @@ public class OrderServiceImpl implements OrderService {
                     .sku(res.getOrderItem().getSku()).quantity(res.getQuantity())
                     .status(res.getStatus())
                     .transferStatus(res.getTransfer() != null ? res.getTransfer().getStatus() : null)
+                    .serials(res.getProductSerials().stream().map(ProductSerialEntity::getSerialNo).toList())
                     .build();
         }).toList();
 
@@ -499,69 +551,94 @@ public class OrderServiceImpl implements OrderService {
     public void completeOrder(Long orderId) {
         OrderEntity order = entityUtil.ensureExists(orderRepository.findById(orderId), "Order not found");
 
-        // 1. Validate trạng thái đầu vào
-        // Cho phép hoàn thành từ DELIVERING (Giao hàng) hoặc CONFIRMED (Khách nhận tại quầy)
-        if (order.getStatus() != OrderStatus.DELIVERING && order.getStatus() != OrderStatus.CONFIRMED) {
-            throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,
-                    "Không thể hoàn thành đơn hàng đang ở trạng thái: " + order.getStatus());
-        }
+        validateStatus(order);
 
-        // =========================================================================
-        // 2. Xử lý Tài chính (Dựa trên Delivery Method)
-        // =========================================================================
-        BigDecimal remainingAmount = order.getTotalAmount().subtract(order.getPaidAmount());
+        List<ReservationEntity> reservations = reservationRepository.findByOrderId(orderId);
+        BigDecimal remaining = order.getTotalAmount().subtract(order.getPaidAmount());
 
-        // TRƯỜNG HỢP 1: Khách nhận tại quầy (STORE_PICKUP)
-        // Logic: Khách đến lấy hàng -> Trả nốt tiền tại chỗ -> Hoàn thành đơn
-        // Hành động: Tự động set đã thanh toán đủ (set paid = total)
-        if (order.getReceiveMethod() == ReceiveMethod.PICKUP) { // Thay bằng enum thực tế của bạn
-            if (remainingAmount.compareTo(BigDecimal.ZERO) > 0) {
-                // Tự động cập nhật số tiền đã trả bằng tổng tiền
+        if (order.getReceiveMethod() == ReceiveMethod.DELIVERY) {
+            boolean isAllDelivered = reservations.stream()
+                    .allMatch(r -> r.getStatus() == ReservationStatus.COMPLETED);
+            if (!isAllDelivered) {
+                throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Đơn hàng chưa được giao thành công");
+            }
+        } else {
+            if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                paymentService.createTransaction(order, remaining, PaymentMethod.CASH_AT_COUNTER);
                 order.setPaidAmount(order.getTotalAmount());
-
-                // TODO: (Khuyên dùng) Nên tạo một bản ghi PaymentTransaction ở đây để lưu vết dòng tiền
-                // paymentService.createTransaction(order, remainingAmount, PaymentMethod.CASH_AT_COUNTER);
-
-                log.info("Order {} (Pickup): Auto-settled remaining amount {}", orderId, remainingAmount);
+                order.setRemainingAmount(BigDecimal.ZERO);
             }
-        }
-        // TRƯỜNG HỢP 2: Giao hàng (DELIVERY)
-        // Logic: Shipper phải thu tiền hoặc khách đã chuyển khoản trước -> Mới được bấm Hoàn thành
-        // Hành động: Chặn nếu chưa thanh toán đủ (COD chưa khớp hoặc chưa chuyển khoản)
-        else {
-            if (remainingAmount.compareTo(BigDecimal.ZERO) > 0) {
-                throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION,
-                        "Đơn giao hàng (Delivery) chưa thanh toán đủ. Còn thiếu: " + remainingAmount +
-                        ". Vui lòng xác nhận thanh toán trước khi hoàn thành.");
+
+            for (ReservationEntity res : reservations) {
+                if (!res.getStatus().equals(ReservationStatus.AVAILABLE)) {
+                    throw new AppException(ErrorCode.EXTERNAL_SERVICE_ERROR,"Không thể hoàn thành đơn hàng vì cửa hàng không có sẵn sản phẩm");
+                } else {
+                    processPickupInventory(res);
+                    res.setStatus(ReservationStatus.COMPLETED);
+                }
             }
         }
 
-        // 3. Cập nhật trạng thái Order
         order.setStatus(OrderStatus.COMPLETED);
         order.setUpdatedAt(LocalDateTime.now());
 
-        // 4. Đồng bộ trạng thái các Reservation con (Safety net)
-        List<ReservationEntity> reservations = reservationRepository.findByOrderId(orderId);
-        boolean hasUpdates = false;
+        reservationRepository.saveAll(reservations);
+        orderRepository.save(order);
+    }
 
-        for (ReservationEntity res : reservations) {
-            if (res.getStatus() != ReservationStatus.COMPLETED && res.getStatus() != ReservationStatus.CANCELLED) {
-                res.setStatus(ReservationStatus.COMPLETED);
-                // Cập nhật Serial sang SOLD
-                if (res.getProductSerials() != null) {
-                    res.getProductSerials().forEach(s -> s.setStatus(ProductSerialStatus.SOLD));
-                    productSerialRepository.saveAll(res.getProductSerials());
-                }
-                hasUpdates = true;
+    private void validateStatus(OrderEntity order) {
+        if (order.isOnline() && order.getReceiveMethod() == ReceiveMethod.DELIVERY) {
+            if (order.getStatus() != OrderStatus.DELIVERING) {
+                throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Đơn giao tận nhà phải ở trạng thái đang giao mới được hoàn thành");
+            }
+        } else {
+            if (order.getStatus() != OrderStatus.CONFIRMED && order.getStatus() != OrderStatus.DELIVERING) {
+                throw new AppException(ErrorCode.BUSINESS_RULE_VIOLATION, "Đơn nhận tại quầy phải ở trạng thái đã xác nhận mới được hoàn thành");
             }
         }
+    }
 
-        if (hasUpdates) {
-            reservationRepository.saveAll(reservations);
+    private void processPickupInventory(ReservationEntity res) {
+        InventoryEntity inventory = inventoryRepository.findByInventoryLocationIdAndVariantId(
+                        res.getLocation().getId(), res.getOrderItem().getVariant().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.INTERNAL_ERROR, "Inventory record not found"));
+
+        // 1. Trừ tồn kho vật lý và nhả hàng giữ chỗ
+        inventory.setStock(inventory.getStock() - res.getQuantity());
+        int currentReserved = inventory.getReservedStock() == null ? 0 : inventory.getReservedStock();
+        inventory.setReservedStock(Math.max(0, currentReserved - res.getQuantity()));
+        inventoryRepository.save(inventory);
+
+        // 2. CẬP NHẬT TRẠNG THÁI SERIAL SANG SOLD
+        if (res.getProductSerials() != null && !res.getProductSerials().isEmpty()) {
+            res.getProductSerials().forEach(serial -> {
+                serial.setStatus(ProductSerialStatus.SOLD);
+                serial.setUpdatedAt(LocalDateTime.now());
+            });
+            productSerialRepository.saveAll(res.getProductSerials());
         }
 
-        orderRepository.save(order);
-        log.info("Order {} marked as COMPLETED.", orderId);
+        // 3. Ghi nhận biến động kho
+        StockMovementEntity mov = new StockMovementEntity();
+        mov.setInventoryLocation(res.getLocation());
+        mov.setVariant(res.getOrderItem().getVariant());
+        mov.setQuantityDelta(-res.getQuantity());
+        mov.setReason("STORE_PICKUP");
+        mov.setRefType("ORDER");
+        mov.setRefId(res.getOrder().getId());
+        mov.setCreatedAt(LocalDateTime.now());
+
+        // Ghi log serial vào ghi chú của Stock Movement để dễ truy vết
+        if (res.getProductSerials() != null && !res.getProductSerials().isEmpty()) {
+            String serialList = res.getProductSerials().stream()
+                    .map(ProductSerialEntity::getSerialNo)
+                    .collect(Collectors.joining(", "));
+            mov.setReason("Xuất trực tiếp tại quầy. Serials: " + serialList);
+        } else {
+            mov.setReason("Xuất trực tiếp tại quầy.");
+        }
+
+        stockMovementRepository.save(mov);
     }
 
     // ========================================================================
@@ -569,58 +646,28 @@ public class OrderServiceImpl implements OrderService {
     // ========================================================================
 
     private void performOrderCancellation(OrderEntity order) {
-        log.info("Performing cancellation for order {}", order.getId());
-
-        // 1. Cancel Debt
+        // 1. Hủy nợ
         debtRepository.findByOrderId(order.getId()).ifPresent(debt -> {
             debt.setStatus(DebtStatus.CANCELLED);
             debtRepository.save(debt);
         });
 
-        // 2. Cancel Payments
-        List<PaymentEntity> payments = new ArrayList<>(order.getPayments());
-        payments.forEach(p -> p.setStatus(PaymentStatus.CANCELED));
-        paymentRepository.saveAll(payments);
-
-        // 3. Release Inventory & Serials (Optimized)
+        // 2. Nhả hàng giữ chỗ và Serial
         List<ReservationEntity> reservations = order.getReservations();
-        if (reservations.isEmpty()) {
-            updateOrderStatus(order, OrderStatus.CANCELLED);
-            return;
-        }
-
-        // Batch fetch Inventories
-        // Key: locationId_variantId
-        Map<String, InventoryEntity> inventoryMap = new HashMap<>();
-
-        // Populate map to avoid query inside loop
-        for (ReservationEntity res : reservations) {
-            String key = res.getLocation().getId() + "_" + res.getOrderItem().getVariant().getId();
-            if (!inventoryMap.containsKey(key)) {
-                inventoryRepository.findByInventoryLocationIdAndVariantId(
-                        res.getLocation().getId(), res.getOrderItem().getVariant().getId()
-                ).ifPresent(inv -> inventoryMap.put(key, inv));
-            }
-        }
-
         List<ProductSerialEntity> serialsToUpdate = new ArrayList<>();
 
         for (ReservationEntity res : reservations) {
-            String key = res.getLocation().getId() + "_" + res.getOrderItem().getVariant().getId();
-            InventoryEntity inventory = inventoryMap.get(key);
+            if (res.getStatus() == ReservationStatus.CANCELLED) continue;
 
-            if (inventory == null) {
-                log.error("Inventory missing for Res ID {}", res.getId());
-                continue;
-            }
+            // Trả lại hàng giữ chỗ về kho
+            inventoryRepository.findByInventoryLocationIdAndVariantId(
+                    res.getLocation().getId(), res.getOrderItem().getVariant().getId()
+            ).ifPresent(inv -> {
+                inv.unReservedStock(res.getQuantity());
+                inventoryRepository.save(inv);
+            });
 
-            if (inventory.getReservedStock() < res.getQuantity()) {
-                log.warn("Stock mismatch: Reserved {} < Release {}", inventory.getReservedStock(), res.getQuantity());
-                inventory.setReservedStock(0);
-            } else {
-                inventory.unReservedStock(res.getQuantity());
-            }
-
+            // Đưa Serial về lại trạng thái sẵn sàng
             res.getProductSerials().forEach(serial -> {
                 serial.setReservation(null);
                 serial.setStatus(ProductSerialStatus.IN_STOCK);
@@ -630,11 +677,13 @@ public class OrderServiceImpl implements OrderService {
             res.setStatus(ReservationStatus.CANCELLED);
         }
 
-        inventoryRepository.saveAll(inventoryMap.values());
         productSerialRepository.saveAll(serialsToUpdate);
         reservationRepository.saveAll(reservations);
 
-        updateOrderStatus(order, OrderStatus.CANCELLED);
+        // 3. Đóng trạng thái đơn hàng
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
     }
 
     private void updateOrderStatus(OrderEntity order, OrderStatus status) {
@@ -642,4 +691,50 @@ public class OrderServiceImpl implements OrderService {
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
     }
+
+//    // Hàm hỗ trợ trừ kho thực tế khi lấy hàng tại quầy
+//    private void deductPhysicalStockForPickup(ReservationEntity res) {
+//        inventoryRepository.findByInventoryLocationIdAndVariantId(
+//                        res.getLocation().getId(), res.getOrderItem().getVariant().getId())
+//                .ifPresent(inventory -> {
+//                    // 1. Trừ kho thực tế (stock) và kho giữ chỗ (reserved)
+//                    inventory.setStock(inventory.getStock() - res.getQuantity());
+//                    inventory.unReservedStock(res.getQuantity());
+//                    inventoryRepository.save(inventory);
+//
+//                    // 2. Ghi nhận Stock Movement
+//                    createStockMovement(res);
+//                });
+//    }
+//
+//    private void createStockMovement(ReservationEntity res) {
+//        StockMovementEntity mov = new StockMovementEntity();
+//
+//        // 1. Thông tin kho và sản phẩm
+//        mov.setInventoryLocation(res.getLocation());
+//        mov.setVariant(res.getOrderItem().getVariant());
+//
+//        // 2. Số lượng delta (Âm vì hàng xuất ra khỏi kho)
+//        mov.setQuantityDelta(-res.getQuantity());
+//
+//        // 3. Thông tin tham chiếu
+//        mov.setReason("STORE_PICKUP"); // Lý do: Khách lấy tại quầy
+//        mov.setRefType("ORDER");       // Loại tham chiếu: Đơn hàng
+//        mov.setRefId(res.getOrder().getId());
+//
+//        // 4. Lưu vết Serial (Nếu có quản lý theo Serial)
+//        if (res.getProductSerials() != null && !res.getProductSerials().isEmpty()) {
+//            String serialList = res.getProductSerials().stream()
+//                    .map(ProductSerialEntity::getSerialNo)
+//                    .collect(Collectors.joining(", "));
+//            mov.setReason("Xuất trực tiếp tại quầy. Serials: " + serialList);
+//        } else {
+//            mov.setReason("Xuất trực tiếp tại quầy.");
+//        }
+//
+//        mov.setCreatedAt(LocalDateTime.now());
+//
+//        // 5. Lưu vào Database
+//        stockMovementRepository.save(mov);
+//    }
 }

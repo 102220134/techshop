@@ -13,6 +13,7 @@ public class DeliveryItemDto {
     private long variantId;
     private String sku;
     private String thumbnail;
+    private List<String> serials;
     private List<VariantDto.AttributeDto> attributes;
     private Integer quantity;
 }
