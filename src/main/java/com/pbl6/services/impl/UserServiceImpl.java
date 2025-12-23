@@ -144,18 +144,15 @@ public class UserServiceImpl implements UserService {
 
         UserEntity currentUser = authenticationUtil.getCurrentUser();
 
-        // ✅ Nếu là chính mình
         if (Objects.equals(currentUser.getId(), userId)) {
             return userMapper.toUserDetailDto(targetUser);
         }
 
-//        // ✅ Nếu có quyền đọc khách hàng
-//        if (currentUser.hasAuthority("USER_READ_CUSTOMER") && targetUser.isCustomer()) {
-//            return userMapper.toUserDetailDto(targetUser);
-//        }
+        if (currentUser.isAdmin()) {
+            return userMapper.toUserDetailDto(targetUser);
+        }
 
-        // ✅ Nếu có quyền đọc nhân viên
-        if (currentUser.hasAuthority("USER_READ_STAFF")) {
+        if (currentUser.hasAuthority("USER_READ_CUSTOMER") && targetUser.isCustomer()) {
             return userMapper.toUserDetailDto(targetUser);
         }
 
