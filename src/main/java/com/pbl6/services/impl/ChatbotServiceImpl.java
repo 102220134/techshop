@@ -108,8 +108,8 @@ public class ChatbotServiceImpl implements ChatbotService {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
             String fullUrl = chatbotApiUrl + "/chat-messages";
-            log.info("Calling chatbot API for user: {} (sanitized: {}) with conversationId: {}", 
-                userKey, sanitizedUserKey, conversationId != null ? conversationId : "(new conversation)");
+            log.info("Calling chatbot API for user: {} (using fixed: {}) with conversationId: {}", 
+                userKey, userForApi, conversationId != null ? conversationId : "(new conversation)");
             log.debug("Request body: {}", requestBody);
             
             ResponseEntity<String> response = restTemplate.exchange(
