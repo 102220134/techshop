@@ -1,6 +1,8 @@
 package com.pbl6.services.impl;
 
 import com.pbl6.dtos.request.webhook.SePayWebhookPayload;
+import com.pbl6.dtos.response.order.PaymentDetailDto;
+import com.pbl6.dtos.response.order.PaymentDto;
 import com.pbl6.dtos.response.payment.PaymentInitResponse;
 import com.pbl6.entities.OrderEntity;
 import com.pbl6.entities.PaymentEntity;
@@ -26,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -154,6 +157,27 @@ public class PaymentServiceImpl implements PaymentService {
         paymentRepo.save(payment);
     }
 
+    @Override
+    public List<PaymentDetailDto> getPaymentsByOrderId(Long orderId) {
+        List<PaymentEntity> payments = paymentRepo.findByOrderId(orderId);
+
+        return payments.stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+    private PaymentDetailDto mapToDto(PaymentEntity entity) {
+        return PaymentDetailDto.builder()
+                .id(entity.getId())
+                .orderId(entity.getOrder().getId())
+                .amount(entity.getAmount())
+                .method(entity.getMethod())
+                .status(entity.getStatus())
+                .provider(entity.getProvider())
+                .transactionRef(entity.getTransactionRef())
+                .paidAt(entity.getPaidAt())
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
     private Long extractOrderId(String content) {
         if (content == null || content.isBlank()) return null;
         // Regex nên clear hơn, ví dụ tiền tố từ config

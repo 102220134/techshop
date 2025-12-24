@@ -6,7 +6,9 @@ import com.pbl6.dtos.response.ApiResponseDto;
 import com.pbl6.dtos.response.PageDto;
 import com.pbl6.dtos.response.order.OrderDetailDto;
 import com.pbl6.dtos.response.order.OrderDto;
+import com.pbl6.dtos.response.order.PaymentDto;
 import com.pbl6.services.OrderService;
+import com.pbl6.services.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     final OrderService orderService;
+    private final PaymentService paymentService;
 
     @PreAuthorize("hasAuthority('ORDER_CREATE')")
     @PostMapping("/create")
@@ -100,5 +103,11 @@ public class OrderController {
         orderService.cancelOrder(orderId);
         // FIX: Sửa lại nội dung response
         return new ApiResponseDto<>("Order cancelled successfully");
+    }
+    @PreAuthorize("hasAuthority('ORDER_READ')")
+    @Operation(summary = "Chi tiết đơn hàng", security = { @SecurityRequirement(name = "bearerAuth")})
+    @GetMapping("/{orderId}/payment")
+    public ApiResponseDto<?> getPaymentsByOrder(@PathVariable Long orderId) {
+        return new ApiResponseDto<>( paymentService.getPaymentsByOrderId(orderId));
     }
 }

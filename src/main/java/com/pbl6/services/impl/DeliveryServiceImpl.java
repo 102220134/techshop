@@ -66,7 +66,7 @@ public class DeliveryServiceImpl implements DeliveryService {
         DeliveryEntity delivery = new DeliveryEntity();
         delivery.setOrder(order);
         delivery.setCarrierName("Manual/External");
-        delivery.setTrackingCode("WAITING_" + order.getId() + "_" + System.currentTimeMillis());
+        delivery.setTrackingCode("SHIP_" + order.getId() + "_" + System.currentTimeMillis());
         delivery.setShippingFee(BigDecimal.ZERO);
         delivery.setCodAmount(codAmount);
         delivery.setStatus(DeliveryStatus.PENDING);
@@ -311,6 +311,7 @@ public class DeliveryServiceImpl implements DeliveryService {
             payment.setStatus(PaymentStatus.PAID);
             payment.setTransactionRef(delivery.getTrackingCode());
             payment.setCreatedAt(LocalDateTime.now());
+            payment.setPaidAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
             // A2. Cập nhật Order (Null Safety)
