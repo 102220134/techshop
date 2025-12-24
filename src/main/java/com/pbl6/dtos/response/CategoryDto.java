@@ -17,6 +17,8 @@ public class CategoryDto {
     private String slug;
     private String categoryType;
     private String logo;
+    private boolean isActive;
+    private Long parentId;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     @Setter

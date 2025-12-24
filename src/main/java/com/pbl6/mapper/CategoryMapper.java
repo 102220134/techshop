@@ -31,6 +31,8 @@ public class CategoryMapper {
                 getFullSlug(cat),
                 cat.getCategoryType(),
                 cat.getLogo(),
+                cat.getIsActive(),
+                cat.getParent() == null ? null : cat.getParent().getId(),
                 null,
                 new ArrayList<>()
         );

@@ -203,9 +203,9 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public BreadcrumbDto getBreadcrumbByProductSlug(String productSlug) {
         ProductEntity product = entityUtil.ensureExists(productRepository.findBySlug(productSlug));
-        if (!product.getIsActive()) {
-            throw new AppException(ErrorCode.NOT_FOUND, "product not found");
-        }
+//        if (!product.getIsActive()) {
+//            throw new AppException(ErrorCode.NOT_FOUND, "product not found");
+//        }
 
         BreadcrumbDto.BreadcrumbItem current =
                 new BreadcrumbDto.BreadcrumbItem(product.getName(), product.getSlug());

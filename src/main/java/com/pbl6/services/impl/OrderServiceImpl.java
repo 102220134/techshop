@@ -332,9 +332,9 @@ public class OrderServiceImpl implements OrderService {
 
         PaymentEntity refund = new PaymentEntity();
         refund.setOrder(order);
-        refund.setAmount(refundAmount.negate()); // Số âm để trừ vào tổng doanh thu
+        refund.setAmount(refundAmount);
         refund.setMethod(order.getPaymentMethod());
-        refund.setStatus(PaymentStatus.REFUNDED); // Ghi nhận đã hoàn (hoặc PENDING_REFUND nếu cần kế toán duyệt)
+        refund.setStatus(PaymentStatus.REFUNDED);
         refund.setTransactionRef("REFUND_" + order.getId() + "_" + System.currentTimeMillis());
         refund.setCreatedAt(LocalDateTime.now());
 

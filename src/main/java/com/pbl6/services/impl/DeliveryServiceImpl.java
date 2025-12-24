@@ -239,13 +239,9 @@ public class DeliveryServiceImpl implements DeliveryService {
     private void handleDeliveryCancelled(DeliveryEntity delivery, List<ReservationEntity> reservations) {
         if (delivery.getStatus() == DeliveryStatus.PENDING) {
             for (ReservationEntity res : reservations) {
-                // Nhả Reserved Stock
-//                updateInventoryReserve(res.getLocation(), res.getOrderItem().getVariant(), res.getQuantity(), false);
-//
-//                List<String> serials = getSerialNumbers(res);
-//                productSerialRepository.updateStatusBySerials(serials, ProductSerialStatus.IN_STOCK);
-
                 res.setStatus(ReservationStatus.PENDING);
+                res.setDelivery(null); // QUAN TRỌNG: Gỡ bỏ vận đơn đã hủy để có thể tạo lại
+                res.setUpdatedAt(LocalDateTime.now());
             }
         }
     }
@@ -412,7 +408,7 @@ public class DeliveryServiceImpl implements DeliveryService {
                 // Có thể thêm lý do hủy tự động
                 freshOrder.setNote(freshOrder.getNote() + " [Hệ thống: Tự động hủy do giao thất bại]");
                 orderRepository.save(freshOrder);
-                log.info("Order ID {} -> CANCELLED (All reservations failed)", freshOrder.getId());
+                processRefundAndCancelDebt(order, "Đơn hàng bị hủy do tất cả giao hàng thất bại");
             }
         } else if (isShipping) {
             // CASE: Đang giao hàng
@@ -421,13 +417,48 @@ public class DeliveryServiceImpl implements DeliveryService {
                 orderRepository.save(freshOrder);
             }
         }
-
         // CASE ĐẶC BIỆT: Giao xong hết rồi (không còn ai Transferring)
         // NHƯNG có 1 món bị Fail/Cancel.
         // -> Code sẽ KHÔNG chạy vào block 'allStrictlySuccess'.
         // -> Đơn hàng sẽ GIỮ NGUYÊN trạng thái cũ (thường là DELIVERING).
         // -> Nhân viên phải vào xử lý thủ công (hoặc hệ thống cần thêm status PARTIALLY_FAILED).
     }
+
+        private void processRefundAndCancelDebt(OrderEntity order, String reason) {
+            BigDecimal paidAmount = order.getPaidAmount() == null ? BigDecimal.ZERO : order.getPaidAmount();
+
+            // A. Nếu đã có thanh toán -> Thực hiện hoàn tiền
+            if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+                // Tạo bản ghi Payment loại hoàn tiền (có thể dùng Status REFUNDED hoặc số tiền âm)
+                PaymentEntity refundPayment = new PaymentEntity();
+                refundPayment.setOrder(order);
+                refundPayment.setAmount(paidAmount); // Số tiền âm để bù trừ
+                refundPayment.setMethod(order.getPaymentMethod());
+                refundPayment.setStatus(PaymentStatus.REFUNDED); // Đã thực hiện hoàn
+                refundPayment.setTransactionRef("REFUND_" + order.getId() + "_" + System.currentTimeMillis());
+                refundPayment.setCreatedAt(LocalDateTime.now());
+                paymentRepository.save(refundPayment);
+
+                // Cập nhật lại Order
+                order.setPaidAmount(BigDecimal.ZERO);
+                order.setRemainingAmount(order.getTotalAmount());
+                orderRepository.save(order);
+
+                log.info("Đã tạo bản ghi hoàn tiền cho Order {}: {}", order.getId(), paidAmount);
+            }
+            // B. Xử lý bản ghi Nợ (Debt)
+            Optional<DebtEntity> debtOpt = debtRepository.findByOrderId(order.getId());
+            if (debtOpt.isPresent()) {
+                DebtEntity debt = debtOpt.get();
+                // Nếu đơn failed/cancelled thì khoản nợ này không còn giá trị thu hồi
+                debt.setStatus(DebtStatus.CANCELLED); // Cần thêm status CANCELLED trong Enum DebtStatus
+                debt.setUpdatedAt(LocalDateTime.now());
+                debtRepository.save(debt);
+                log.info("Đã hủy bản ghi nợ cho Order {}", order.getId());
+            }
+        }
+
+
 
     // ========================================================================
     // HELPERS
@@ -504,8 +535,11 @@ public class DeliveryServiceImpl implements DeliveryService {
                 .build();
     }
 
+
+
     private PageRequest getPageRequest(int page, int size, String dir, String order) {
         Sort sort = Sort.by(dir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC, order);
         return PageRequest.of(page - 1, size, sort);
     }
+
 }

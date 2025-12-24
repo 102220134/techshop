@@ -250,7 +250,7 @@ public class UserServiceImpl implements UserService {
                     return new AppException(ErrorCode.NOT_FOUND,"User not found");
                 });
 
-        if (!passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
             log.warn("Password change failed for userId {}: Current password verification failed.", userId);
             throw new AppException(ErrorCode.UNAUTHORIZED, " Current password verification failed.");
         }
